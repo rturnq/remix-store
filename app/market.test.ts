@@ -1,12 +1,8 @@
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it } from "vitest";
 
-import {
-  CA_MARKET,
-  resolveMarketPath,
-  US_MARKET,
-} from "../lib/public/market.ts";
-import { createTestApp } from "../testing/storefront.ts";
+import { CA_MARKET, resolveMarketPath, US_MARKET } from "./lib/market.ts";
+import { createTestApp } from "./testing/storefront.ts";
 
 describe("market routing", () => {
   it("resolves unprefixed US and prefix-stripped Canadian paths", () => {

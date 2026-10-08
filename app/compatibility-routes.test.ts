@@ -1,6 +1,6 @@
 import { createCartCookie } from "@shopify/hydrogen";
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it, vi } from "vitest";
 
 import {
   analyticsShopData,
@@ -54,7 +54,7 @@ describe("Shopify compatibility routes", () => {
     assert.equal(location.searchParams.get("payment"), "shop_pay");
   });
 
-  it("handles localized cart API, checkout, permalink, and AJAX paths", async (t) => {
+  it("handles localized cart API, checkout, permalink, and AJAX paths", async () => {
     let upstreamUrl: string | undefined;
     let ajaxFetch: typeof globalThis.fetch = async (input) => {
       upstreamUrl = String(input);
@@ -62,7 +62,7 @@ describe("Shopify compatibility routes", () => {
         headers: { "Content-Type": "application/json" },
       });
     };
-    t.mock.method(globalThis, "fetch", ajaxFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(ajaxFetch);
 
     let cart = createCart();
     cart.checkoutUrl = "https://checkout.example.test/cart/c/ca";
@@ -141,7 +141,7 @@ describe("Shopify compatibility routes", () => {
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   });
 
-  it("proxies Shopify AJAX cart requests before app routing", async (t) => {
+  it("proxies Shopify AJAX cart requests before app routing", async () => {
     let upstreamUrl: string | undefined;
     let upstreamFetch: typeof globalThis.fetch = async (input) => {
       upstreamUrl = String(input);
@@ -149,7 +149,7 @@ describe("Shopify compatibility routes", () => {
         headers: { "Content-Type": "application/json" },
       });
     };
-    t.mock.method(globalThis, "fetch", upstreamFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(upstreamFetch);
     let app = createTestApp(unexpectedStorefrontFetch());
 
     let response = await app.fetch(
@@ -165,7 +165,7 @@ describe("Shopify compatibility routes", () => {
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
   });
 
-  it("proxies caller-authenticated UCP MCP requests to Shopify", async (t) => {
+  it("proxies caller-authenticated UCP MCP requests to Shopify", async () => {
     let upstreamUrl: string | undefined;
     let upstreamMethod: string | undefined;
     let upstreamAuthorization: string | null | undefined;
@@ -181,7 +181,7 @@ describe("Shopify compatibility routes", () => {
         result: { tools: [] },
       });
     };
-    t.mock.method(globalThis, "fetch", upstreamFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(upstreamFetch);
     let app = createTestApp(unexpectedStorefrontFetch());
     let requestBody = {
       jsonrpc: "2.0",
@@ -425,11 +425,11 @@ describe("discount compatibility links", () => {
     assert.equal(response.headers.get("Set-Cookie"), null);
   });
 
-  it("still removes a discount query when Shopify is unavailable", async (t) => {
+  it("still removes a discount query when Shopify is unavailable", async () => {
     let app = createTestApp(async () => {
       throw new TypeError("connection lost");
     });
-    t.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     let response = await app.fetch(
       new Request(`${origin}/products/remix-cap?discount=LAUNCH&size=M`),

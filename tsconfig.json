@@ -18,6 +18,6 @@
     "noEmit": true,
     "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo"
   },
-  "include": ["app", "vite", "*.ts", ".marko-run/routes.d.ts"],
+  "include": ["app", "test", "vite", "*.ts", ".marko-run/routes.d.ts"],
   "exclude": ["dist", "legacy"]
 }

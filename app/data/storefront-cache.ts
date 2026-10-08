@@ -98,6 +98,8 @@ export class MemoryStorefrontCache {
 const nodeStorefrontCache = new MemoryStorefrontCache();
 
 /** The runtime's Cache API when it has one, else the process-local cache. */
-export function getStorefrontCache(cache: Cache | undefined): CacheInstance {
+export function getStorefrontCache(
+  cache: CacheInstance | undefined,
+): CacheInstance {
   return cache ?? nodeStorefrontCache;
 }

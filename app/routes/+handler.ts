@@ -10,6 +10,6 @@ export const GET = Run.GET(async (ctx, next) => {
     canonicalUrl:
       ctx.url.origin + marketPath("/", ctx.platform.market.pathPrefix),
     home: home.data,
-    showSeasonalSnow: isUtcDecember(new Date()),
+    showSeasonalSnow: isUtcDecember(ctx.platform.now?.() ?? new Date()),
   });
 });

@@ -1,14 +1,13 @@
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it, vi } from "vitest";
 
-import { routes } from "../routes.ts";
 import {
   analyticsShopData,
   createStorefrontFetch,
   createTestApp,
   testEnv,
   type StorefrontRequestBody,
-} from "../testing/storefront.ts";
+} from "./testing/storefront.ts";
 
 const shellMenuFetch = createStorefrontFetch({
   RemixAnalyticsShop: analyticsShopData,
@@ -21,29 +20,25 @@ describe("platform skeleton", () => {
     let html = await response.text();
 
     assert.equal(response.status, 200);
-    assert.match(
-      html,
-      /<script data-rmx-import-map type="importmap">\{"imports":\{"remix\/component":"\/assets\/remix-component\.js"\}\}<\/script>/,
-    );
-    assert.match(
-      html,
-      /<script src="\/assets\/entry\.js" type="module"><\/script>/,
-    );
+    assert.match(html, /<script[^>]* type="?module"?/);
     assert.match(html, /<title>Home \| The Remix Store<\/title>/);
-    assert.match(html, /<link rel="canonical" href="https:\/\/example\.com\/"/);
     assert.match(
       html,
-      /<meta property="og:site_name" content="The Remix Store"/,
+      /<link rel="?canonical"? href="?https:\/\/example\.com\/"?/,
     );
     assert.match(
       html,
-      /<meta property="og:url" content="https:\/\/example\.com\/"/,
+      /<meta property="?og:site_name"? content="?The Remix Store"?/,
     );
     assert.match(
       html,
-      /<meta name="twitter:card" content="summary_large_image"/,
+      /<meta property="?og:url"? content="?https:\/\/example\.com\/"?/,
     );
-    assert.match(html, /id="shopify-consent"/);
+    assert.match(
+      html,
+      /<meta name="?twitter:card"? content="?summary_large_image"?/,
+    );
+    assert.match(html, /id="?shopify-consent"?/);
     assert.match(html, /storefront-banner\.js/);
     assert.match(html, /"mode":"default-banner"/);
     assert.match(html, /Main navigation/);
@@ -57,7 +52,7 @@ describe("platform skeleton", () => {
     let symbols = new Set(
       [...html.matchAll(/<symbol[^>]*\sid="([^"]+)"/g)].map((m) => m[1]),
     );
-    let references = [...html.matchAll(/<use href="#([^"]+)"/g)].map(
+    let references = [...html.matchAll(/<use href="?#([^"\s>]+)/g)].map(
       (m) => m[1],
     );
 
@@ -112,13 +107,13 @@ describe("platform skeleton", () => {
     let html = await response.text();
 
     assert.equal(response.status, 200);
-    assert.match(html, /<html lang="en-CA" data-market-prefix="\/en-ca"/);
+    assert.match(html, /<html lang="?en-CA"? data-market-prefix="?\/en-ca"?/);
     assert.match(
       html,
-      /rel="canonical" href="https:\/\/example\.com\/en-ca\/"/,
+      /rel="?canonical"? href="?https:\/\/example\.com\/en-ca\/"?/,
     );
-    assert.match(html, /href="\/en-ca\/collections\/racing"/);
-    assert.match(html, /href="\/en-ca\/products\/test-catalog-product"/);
+    assert.match(html, /href="?\/en-ca\/collections\/racing"?/);
+    assert.match(html, /href="?\/en-ca\/products\/test-catalog-product"?/);
     assert.match(html, /country.{0,20}CA/);
     assert.match(html, /active.{0,20}CAD/);
     assert.match(html, /root.{0,30}en-ca/);
@@ -131,7 +126,7 @@ describe("platform skeleton", () => {
     let response = await fetchHome();
     let html = await response.text();
 
-    assert.match(html, /data-store-wide-sale="true"/);
+    assert.match(html, /data-store-wide-sale="?true"?/);
     assert.match(html, /Summer Sale\. 20% off everything\. Ends Jun\.2\./);
     assert.match(html, /Now thru Jun\.2/);
   });
@@ -142,7 +137,7 @@ describe("platform skeleton", () => {
 
     assert.match(html, /Remix 3 Racing Team Collection/);
     assert.match(html, /Shop New Items/);
-    assert.match(html, /href="\/collections\/racing"/);
+    assert.match(html, /href="?\/collections\/racing"?/);
     assert.match(html, /cdn\.shopify\.com\/hero\.jpg/);
     assert.match(html, /cdn\.shopify\.com\/lookbook\.jpg/);
     assert.match(html, /Coming Soon/);
@@ -152,13 +147,12 @@ describe("platform skeleton", () => {
   it("server-renders static snow only on December home requests", async () => {
     let decemberApp = createHomeApp(() => new Date("2026-12-01T00:00:00Z"));
     let decemberResponse = await decemberApp.fetch(
-      new Request("https://example.com" + routes.home.href()),
+      new Request("https://example.com" + "/"),
     );
     let decemberHtml = await decemberResponse.text();
-    assert.match(decemberHtml, /data-seasonal-snow="true"/);
-    assert.match(decemberHtml, /data-snow-static="true"/);
-    assert.match(decemberHtml, /<canvas aria-hidden="true"><\/canvas>/);
-    assert.match(decemberHtml, /\/assets\/component\.js/);
+    assert.match(decemberHtml, /data-seasonal-snow="?true"?/);
+    assert.match(decemberHtml, /data-snow-static="?true"?/);
+    assert.match(decemberHtml, /<canvas aria-hidden="?true"?><\/canvas>/);
 
     let nonHomeResponse = await decemberApp.fetch(
       new Request("https://example.com/not-found"),
@@ -171,7 +165,7 @@ describe("platform skeleton", () => {
     assert.doesNotMatch(await januaryResponse.text(), /data-seasonal-snow/);
   });
 
-  it("renders a branded 500 when the Storefront API returns errors", async (t) => {
+  it("renders a branded 500 when the Storefront API returns errors", async () => {
     let mockFetch: typeof globalThis.fetch = async () =>
       new Response(
         JSON.stringify({
@@ -181,11 +175,9 @@ describe("platform skeleton", () => {
         { headers: { "Content-Type": "application/json" } },
       );
     let app = createTestApp(mockFetch);
-    t.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
-    let response = await app.fetch(
-      new Request("https://example.com" + routes.home.href()),
-    );
+    let response = await app.fetch(new Request("https://example.com" + "/"));
     let html = await response.text();
 
     assert.equal(response.status, 500);
@@ -209,9 +201,7 @@ describe("platform skeleton", () => {
 });
 
 function fetchHome(clock: () => Date = () => new Date("2026-06-01T00:00:00Z")) {
-  return createHomeApp(clock).fetch(
-    new Request("https://example.com" + routes.home.href()),
-  );
+  return createHomeApp(clock).fetch(new Request("https://example.com" + "/"));
 }
 
 function createHomeApp(clock: () => Date) {
@@ -222,7 +212,7 @@ function createHomeApp(clock: () => Date) {
       RemixHomeEditorial: homeData,
       RemixNavigation: navigationData,
     }),
-    { seasonalSnow: { clock } },
+    { now: clock },
   );
 }
 

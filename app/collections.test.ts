@@ -1,14 +1,13 @@
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it, vi } from "vitest";
 
-import { routes } from "../../routes.ts";
 import {
   analyticsShopData,
   createStorefrontFetch,
   createTestApp,
   navigationData,
   type StorefrontRequestBody,
-} from "../../testing/storefront.ts";
+} from "./testing/storefront.ts";
 
 describe("collection routes", () => {
   it("renders catalog cards and keeps load more as a GET fallback", async () => {
@@ -21,10 +20,7 @@ describe("collection routes", () => {
     );
 
     let response = await app.fetch(
-      new Request(
-        "https://example.com" +
-          routes.collections.show.href({ handle: "racing" }),
-      ),
+      new Request("https://example.com" + "/collections/racing"),
     );
     let html = await response.text();
 
@@ -32,17 +28,15 @@ describe("collection routes", () => {
     assert.equal(variables?.first, 15);
     assert.equal(variables?.after, undefined);
     assert.match(html, /<h1>Racing collection<\/h1>/);
-    assert.match(html, /href="\/products\/racing-shirt"/);
+    assert.match(html, /href="?\/products\/racing-shirt"?/);
     assert.match(html, /Racing shirt/);
     assert.match(html, /\$30\.00/);
     assert.match(html, /\$20\.00/);
-    assert.match(html, /<form action="\/collections\/racing" method="get"/);
-    assert.match(html, /name="cursor" value="next-page"/);
-    // The control is frame content that loads the next page in place.
-    assert.match(html, /\/collections\/racing\/products\?cursor=next-page/);
+    assert.match(html, /<form action="?\/collections\/racing"? method="?get"?/);
+    assert.match(html, /name="?cursor"? value="?next-page"?/);
   });
 
-  it("renders the next page of cards as frame content without shell data", async () => {
+  it("serves the next page of cards as JSON without shell data", async () => {
     let variables: StorefrontRequestBody["variables"] | undefined;
     // Only the collection query is mocked: shell, cart, and analytics
     // queries would throw.
@@ -60,21 +54,15 @@ describe("collection routes", () => {
         "https://example.com/en-ca/collections/racing/products?cursor=page-2",
       ),
     );
-    let html = await response.text();
+    let page = (await response.json()) as ProductsPage;
 
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("X-Robots-Tag"), "noindex");
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
     assert.equal(variables?.first, 8);
     assert.equal(variables?.after, "page-2");
-    assert.match(html, /href="\/en-ca\/products\/racing-shirt"/);
-    assert.doesNotMatch(html, /<h1>/);
-    assert.match(
-      html,
-      /<form action="\/en-ca\/collections\/racing" method="get"/,
-    );
-    assert.match(html, /name="cursor" value="page-3"/);
-    assert.match(html, /\/en-ca\/collections\/racing\/products\?cursor=page-3/);
+    assert.equal(page.products[0].handle, "racing-shirt");
+    assert.equal(page.nextCursor, "page-3");
   });
 
   it("ends the grid when the collection has no further page", async () => {
@@ -90,15 +78,15 @@ describe("collection routes", () => {
         "https://example.com/collections/racing/products?cursor=last",
       ),
     );
-    let html = await response.text();
+    let page = (await response.json()) as ProductsPage;
 
     assert.equal(response.status, 200);
-    assert.match(html, /href="\/products\/racing-shirt"/);
-    assert.doesNotMatch(html, /Load more/);
+    assert.equal(page.products[0].handle, "racing-shirt");
+    assert.equal(page.nextCursor, null);
   });
 
-  it("renders a retryable control when a page fails to load", async (t) => {
-    t.mock.method(console, "error", () => {});
+  it("reports a page that fails to load so the grid can retry", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     let app = createTestApp(
       createStorefrontFetch({
         RemixCollection: () => {
@@ -112,40 +100,20 @@ describe("collection routes", () => {
         "https://example.com/collections/racing/products?cursor=page-2",
       ),
     );
-    let html = await response.text();
 
-    assert.equal(response.status, 200);
-    assert.match(html, /role="alert"/);
-    assert.match(html, /Products could not be loaded/);
-    assert.match(html, /name="cursor" value="page-2"/);
-    assert.doesNotMatch(html, /Page not found|Something went wrong/);
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      error: "Products could not be loaded.",
+    });
   });
 
-  it("renders the load more control without querying Shopify", async () => {
+  it("requires a cursor for the next page", async () => {
     let app = createTestApp(createStorefrontFetch({}));
 
     let response = await app.fetch(
-      new Request("https://example.com/collections/racing/load-more?cursor=c"),
+      new Request("https://example.com/collections/racing/products"),
     );
-    let html = await response.text();
-
-    assert.equal(response.status, 200);
-    assert.equal(response.headers.get("X-Robots-Tag"), "noindex");
-    assert.match(html, /<form action="\/collections\/racing" method="get"/);
-    assert.match(html, /name="cursor" value="c"/);
-    assert.match(html, />Load more</);
-  });
-
-  it("requires a cursor for grid fragments", async () => {
-    let app = createTestApp(createStorefrontFetch({}));
-
-    for (let path of [
-      "/collections/racing/products",
-      "/collections/racing/load-more",
-    ]) {
-      let response = await app.fetch(new Request(`https://example.com${path}`));
-      assert.equal(response.status, 400, path);
-    }
+    assert.equal(response.status, 400);
   });
 
   it("renders collection metadata", async () => {
@@ -162,11 +130,11 @@ describe("collection routes", () => {
 
     assert.match(
       html,
-      /<link rel="canonical" href="https:\/\/example\.com\/collections\/racing"/,
+      /<link rel="?canonical"? href="?https:\/\/example\.com\/collections\/racing"?/,
     );
     assert.match(
       html,
-      /<meta property="og:image" content="https:\/\/example\.com\/social-collections\.jpg"/,
+      /<meta property="?og:image"? content="?https:\/\/example\.com\/social-collections\.jpg"?/,
     );
   });
 
@@ -174,10 +142,7 @@ describe("collection routes", () => {
     let app = createTestApp(storefrontFetch(() => ({ collection: null })));
 
     let response = await app.fetch(
-      new Request(
-        "https://example.com" +
-          routes.collections.show.href({ handle: "not-a-collection" }),
-      ),
+      new Request("https://example.com" + "/collections/not-a-collection"),
     );
     let html = await response.text();
 
@@ -192,10 +157,7 @@ describe("collection routes", () => {
         RemixNavigation: navigationData,
       }),
     );
-    let url = new URL(
-      routes.collections.show.href({ handle: "racing" }),
-      "https://example.com",
-    );
+    let url = new URL("/collections/racing", "https://example.com");
     url.searchParams.set("cursor", "x".repeat(2_049));
 
     let result = await app.fetch(new Request(url));
@@ -256,3 +218,8 @@ function collectionData(pageInfo: {
     },
   };
 }
+
+type ProductsPage = {
+  products: Array<{ handle: string }>;
+  nextCursor: string | null;
+};

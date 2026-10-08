@@ -1,3 +1,5 @@
+import type { CacheInstance } from "@shopify/hydrogen";
+
 import type { ActiveMarket } from "./lib/market.ts";
 
 export type Env = Record<string, string | undefined>;
@@ -8,8 +10,10 @@ export interface Runtime {
   /** The buyer's IP, read only from a source the runtime trusts. */
   buyerIp?: string;
   /** The Worker Cache API. Node has none and caches Storefront data in memory. */
-  cache?: Cache;
+  cache?: CacheInstance;
   waitUntil?(promise: Promise<unknown>): void;
+  /** The current time; tests pin it to check seasonal pages. */
+  now?(): Date;
 }
 
 /** The request-scoped bindings every route reads from `ctx.platform`. */

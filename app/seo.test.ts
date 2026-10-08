@@ -1,6 +1,6 @@
 import { createCartCookie } from "@shopify/hydrogen";
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it, vi } from "vitest";
 
 import {
   analyticsShopData,
@@ -9,7 +9,7 @@ import {
   navigationData,
   type StorefrontHandler,
   type StorefrontRequestBody,
-} from "../../testing/storefront.ts";
+} from "./testing/storefront.ts";
 
 describe("SEO resource routes", () => {
   it("publishes crawler rules while loading only the required shop identity", async () => {
@@ -220,8 +220,8 @@ describe("SEO resource routes", () => {
       body,
       /<loc>https:\/\/preview\.example\/en-ca\/products\/remix-shirt<\/loc>/,
     );
-    assert.match(body, /hreflang="en-US"/);
-    assert.match(body, /hreflang="en-CA"/);
+    assert.match(body, /hreflang="?en-US"?/);
+    assert.match(body, /hreflang="?en-CA"?/);
     assert.match(body, /<lastmod>2026-06-15T12:00:00Z<\/lastmod>/);
     assert.match(body, /<changefreq>weekly<\/changefreq>/);
     assert.match(body, /xmlns:image=/);
@@ -292,11 +292,11 @@ describe("SEO resource routes", () => {
     );
   });
 
-  it("returns a retryable 503 when Shopify cannot generate a sitemap", async (t) => {
+  it("returns a retryable 503 when Shopify cannot generate a sitemap", async () => {
     let app = seoApp(() => {
       throw new Error("Storefront unavailable");
     });
-    t.mock.method(console, "error", () => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
 
     let response = await app.fetch(
       new Request("https://preview.example/sitemap/products/1.xml"),

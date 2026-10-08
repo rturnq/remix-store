@@ -1,8 +1,8 @@
 import { createCartCookie } from "@shopify/hydrogen";
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it, vi } from "vitest";
 
-import { CART_API_PATH, routes } from "./routes.ts";
+import { CART_API_PATH } from "./lib/cart-routes.ts";
 import {
   analyticsShopData,
   createStorefrontFetch,
@@ -15,11 +15,11 @@ import { CART_ID, createCart } from "../test/cart-fixtures.ts";
 const origin = "https://storefront.example";
 
 describe("cart routes", () => {
-  it("serves an empty cart API response before app routing", async (t) => {
+  it("serves an empty cart API response before app routing", async () => {
     let mockFetch: typeof globalThis.fetch = async () => {
       throw new Error("The empty cart API must not query Shopify");
     };
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
 
     let response = await app.fetch(new Request(new URL(CART_API_PATH, origin)));
@@ -32,7 +32,7 @@ describe("cart routes", () => {
     assert.deepEqual(await response.json(), { cart: null });
   });
 
-  it("server-renders an existing cart with progressive line forms", async (t) => {
+  it("server-renders an existing cart with progressive line forms", async () => {
     let cart = createCart();
     let cartRequest: StorefrontRequestBody | undefined;
     let mockFetch = createStorefrontFetch({
@@ -43,12 +43,12 @@ describe("cart routes", () => {
       RemixAnalyticsShop: analyticsShopData,
       RemixNavigation: navigationData,
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
     let cookie = createCartCookie(CART_ID).split(";", 1)[0];
 
     let response = await app.fetch(
-      new Request(new URL(routes.cart.href(), origin), {
+      new Request(new URL("/cart", origin), {
         headers: { Cookie: cookie ?? "" },
       }),
     );
@@ -58,17 +58,17 @@ describe("cart routes", () => {
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
     assert.match(html, /<title>Cart \(1\) \| The Remix Store<\/title>/);
     assert.match(html, /Test Product/);
-    assert.match(html, /name="lineId"/);
-    assert.match(html, /name="quantity"/);
-    assert.match(html, /name="intent" value="set"/);
-    assert.match(html, /href="https:\/\/checkout\.example\.test\/cart"/);
+    assert.match(html, /name="?lineId"?/);
+    assert.match(html, /name="?quantity"?/);
+    assert.match(html, /name="?intent"? value="?set"?/);
+    assert.match(html, /href="?https:\/\/checkout\.example\.test\/cart"?/);
     assert.match(
       cartRequest?.query ?? "",
       /fragment CartFragment on Cart\s*\{\s*updatedAt/,
     );
   });
 
-  it("server-renders a localized Canadian cart with contextual queries", async (t) => {
+  it("server-renders a localized Canadian cart with contextual queries", async () => {
     let cart = createCart();
     let cartRequest: StorefrontRequestBody | undefined;
     cart.cost.subtotalAmount.currencyCode = "CAD";
@@ -86,7 +86,7 @@ describe("cart routes", () => {
       }),
       RemixNavigation: navigationData,
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
     let cookie = createCartCookie(CART_ID).split(";", 1)[0];
 
@@ -100,12 +100,12 @@ describe("cart routes", () => {
     assert.equal(response.status, 200);
     assert.equal(cartRequest?.variables.country, "CA");
     assert.equal(cartRequest?.variables.language, "EN");
-    assert.match(html, /action="\/en-ca\/api\/cart"/);
-    assert.match(html, /href="\/en-ca\/products\/test-product"/);
+    assert.match(html, /action="?\/en-ca\/api\/cart"?/);
+    assert.match(html, /href="?\/en-ca\/products\/test-product"?/);
     assert.match(html, /currencyCode.{0,20}CAD/);
   });
 
-  it("labels automatic line allocations with the active sale title", async (t) => {
+  it("labels automatic line allocations with the active sale title", async () => {
     let cart = createCart();
     cart.cost.totalAmount.amount = "8";
     cart.lines.nodes[0]!.discountAllocations = [
@@ -119,12 +119,12 @@ describe("cart routes", () => {
       RemixAnalyticsShop: analyticsShopData,
       RemixNavigation: saleNavigationData,
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
     let cookie = createCartCookie(CART_ID).split(";", 1)[0];
 
     let response = await app.fetch(
-      new Request(new URL(routes.cart.href(), origin), {
+      new Request(new URL("/cart", origin), {
         headers: { Cookie: cookie ?? "" },
       }),
     );
@@ -135,17 +135,15 @@ describe("cart routes", () => {
     assert.doesNotMatch(html, /Automatic discount/);
   });
 
-  it("renders /cart with an empty branded state and a private cache policy", async (t) => {
+  it("renders /cart with an empty branded state and a private cache policy", async () => {
     let mockFetch = createStorefrontFetch({
       RemixAnalyticsShop: analyticsShopData,
       RemixNavigation: navigationData,
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
 
-    let response = await app.fetch(
-      new Request(new URL(routes.cart.href(), origin)),
-    );
+    let response = await app.fetch(new Request(new URL("/cart", origin)));
     let html = await response.text();
 
     assert.equal(response.status, 200);
@@ -157,14 +155,14 @@ describe("cart routes", () => {
       /Please browse our catalog and add items before checking out\./,
     );
     assert.match(html, /Shop All/);
-    assert.match(html, /name="robots" content="noindex, nofollow"/);
+    assert.match(html, /name="?robots"? content="?noindex, nofollow"?/);
     assert.match(
       html,
-      /rel="canonical" href="https:\/\/storefront\.example\/cart"/,
+      /rel="?canonical"? href="?https:\/\/storefront\.example\/cart"?/,
     );
   });
 
-  it("accepts a no-JavaScript add-to-cart POST and redirects with a cart cookie", async (t) => {
+  it("accepts a no-JavaScript add-to-cart POST and redirects with a cart cookie", async () => {
     let cart = createCart();
     let storefrontBody: StorefrontRequestBody | undefined;
     let mockFetch = createStorefrontFetch({
@@ -173,16 +171,13 @@ describe("cart routes", () => {
         return { cartCreate: { cart, userErrors: [], warnings: [] } };
       },
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
 
     let formData = new FormData();
     formData.set("merchandiseId", "gid://shopify/ProductVariant/test-variant");
     formData.set("quantity", "1");
-    let referer = new URL(
-      routes.products.show.href({ handle: "test-product" }),
-      origin,
-    );
+    let referer = new URL("/products/test-product", origin);
 
     let response = await app.fetch(
       new Request(new URL(CART_API_PATH, origin), {
@@ -209,7 +204,7 @@ describe("cart routes", () => {
     });
   });
 
-  it("accepts a localized no-JavaScript cart POST and keeps its Canadian referer", async (t) => {
+  it("accepts a localized no-JavaScript cart POST and keeps its Canadian referer", async () => {
     let cart = createCart();
     let storefrontBody: StorefrontRequestBody | undefined;
     let mockFetch = createStorefrontFetch({
@@ -218,7 +213,7 @@ describe("cart routes", () => {
         return { cartCreate: { cart, userErrors: [], warnings: [] } };
       },
     });
-    t.mock.method(globalThis, "fetch", mockFetch);
+    vi.spyOn(globalThis, "fetch").mockImplementation(mockFetch);
     let app = createTestApp(mockFetch);
     let formData = new FormData();
     formData.set("merchandiseId", "gid://shopify/ProductVariant/test-variant");
