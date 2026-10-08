@@ -2,7 +2,7 @@
 
 The storefront behind [shop.remix.run](https://shop.remix.run).
 
-The storefront runs on Remix 3 and framework-neutral Hydrogen across native Node/Fly and Oxygen runtimes.
+The storefront runs on [Marko 6](https://markojs.com) and [@marko/run](https://github.com/marko-js/run) with framework-neutral Hydrogen, on both Node/Fly and Shopify Oxygen.
 
 ## Requirements
 
@@ -26,14 +26,14 @@ The private Storefront token remains server-only and enables request-aware cart,
 checkout, and Shopify redirect handling. Oxygen supplies `oxygen-buyer-ip`; Fly
 supplies `fly-client-ip`, or behind Fastly, `x-cdn-client-ip` authenticated by
 `CDN_ORIGIN_SECRET` (see [`FLY_DEPLOYMENT.md`](./FLY_DEPLOYMENT.md#fastly-cdn)). Other Node runtimes use the client address resolved by
-Remix's HTTP adapter from the socket or, when explicitly configured behind a
+the Node HTTP listener from the socket or, when explicitly configured behind a
 trusted proxy with `TRUST_PROXY=true`, overwritten proxy headers. Never forward
 platform buyer-IP headers outside their runtime. `PUBLIC_CHECKOUT_DOMAIN` is not
 a runtime input; checkout uses Shopify's
 authoritative `cart.checkoutUrl`. The app does not use durable application
 sessions or require `SESSION_SECRET`.
 
-`pnpm dev` runs the framework-native Node server with `remix/assets`. For UI-heavy work, use `pnpm hmr` to preserve browser state while hot-updating client and server modules. Use `pnpm dev:oxygen` when testing the same application under MiniOxygen's Worker runtime.
+`pnpm dev` runs the Node server through `marko-run dev`, with Vite serving and hot-updating browser modules. Use `pnpm dev:oxygen` to run the same app in MiniOxygen's Worker runtime. Both listen on port 44100.
 
 The example environment points at the live production store. Purchases create real orders and charge real money.
 
@@ -50,9 +50,11 @@ pnpm build:oxygen
 pnpm preview:oxygen
 ```
 
-The end-to-end suites use a deterministic local Storefront fixture: `test:e2e` runs native Node, `test:e2e:oxygen:dev` runs MiniOxygen development, and `test:e2e:oxygen` builds and runs the production Worker. Pull requests exercise all three runtimes. Set `BASE_URL` to target an existing deployment instead.
+`pnpm test` runs Vitest. Route tests load the app through Vite with the @marko/run plugin and fake the Storefront API (`app/testing/storefront.ts`).
 
-The Oxygen build produces a self-contained Worker at `dist/server/index.js` and browser assets in `dist/client/`. MiniOxygen preview and Shopify CLI discover these standard output directories automatically. The Node server compiles browser modules through `remix/assets` for Fly.
+The end-to-end suites use a deterministic local Storefront fixture: `test:e2e` builds and runs the Node server, `test:e2e:oxygen:dev` runs MiniOxygen development, and `test:e2e:oxygen` builds and runs the production Worker. Pull requests exercise all three runtimes. Development hides the page until its scripts run, so the no-JavaScript specs skip MiniOxygen development. Set `BASE_URL` to target an existing deployment instead.
+
+`pnpm build` writes the Node server to `dist/index.mjs` with browser assets in `dist/public/`. The Oxygen build produces a self-contained Worker at `dist/server/index.js` and browser assets in `dist/client/`; MiniOxygen preview and Shopify CLI discover these standard output directories automatically.
 
 ## Deployments
 
@@ -71,20 +73,14 @@ Fly setup, secrets, local image verification, and continuous deployment are docu
 
 ## Architecture
 
-- `app/routes.ts` defines the typed route contract.
-- `app/router.ts` owns the shared Fetch app, routes, middleware, and runtime boundary.
-- `app/assets.ts` defines the shared metadata contract, document asset sources, and document asset factory.
-- `app/assets.node.ts` constructs the native Remix asset server; `app/assets.oxygen.ts` constructs Pitlane's Worker-safe manifest resolver.
-- `app/node.ts` composes Node static files, Remix Assets, rendering, and routing.
-- `app/middleware/storefront.ts` creates a request-scoped Hydrogen Storefront client.
-- `app/middleware/render.tsx` contains runtime-neutral streaming SSR.
-- `app/runtime.ts` binds environment, cache, and `waitUntil` values to each request.
-- `server.node.ts` owns the Node/Fly-compatible HTTP lifecycle.
-- `app/entry.oxygen.ts` composes and serves the Oxygen Worker runtime.
-- `app/actions/public/entry.tsx` hydrates browser components on both targets.
-- `vite/remix-oxygen.ts` composes [Pitlane's Remix Vite plugin](https://pitlane.tools/guides/vite-plugin) with MiniOxygen, then bundles Pitlane's asset manifest into the single `index.js` Worker that Oxygen deploys.
-
-Pitlane's resolver implements the metadata interface consumed by Remix's `render({ assets })` middleware. Remix owns streaming, frames, and hydration; Pitlane rewrites `clientEntry(import.meta.url, ...)` to portable `file:app/…#Export` identities and resolves them to built browser modules. The installed Remix asset server compiles from the filesystem in Node, so Oxygen needs this build-time bridge. The Node asset server's allow list defines which sources are public; its tests cover that boundary for both targets.
+- `app/routes/` holds the @marko/run routes: `+page.marko` pages, `+handler.ts` request handlers, and the root `+middleware.ts`. A `$$rest` route sends every other path through the middleware, which serves Shopify's own routes.
+- `app/request.ts` is the Fetch boundary both runtimes call. It resolves the `/en-ca` market prefix before routing, since @marko/run matches routes ahead of middleware.
+- `app/middleware/storefront.ts` creates the request's Hydrogen Storefront client (`ctx.storefront`), serves the cart API, checkout, permalinks and discount links, loads the shell data (`ctx.shell`), and tries Shopify's redirects for 404s.
+- `app/runtime.ts` types the bindings each runtime passes the routes as `ctx.platform`: environment, buyer IP, cache, `waitUntil` and market.
+- `app/tags/` holds the Marko tags. Pages wrap themselves in `<app-document>`, which sets the head from its input and renders the navbar, footer and Shopify scripts. Marko decides which tags ship JavaScript; browser-only modules live in `app/lib/browser/`.
+- `server.node.ts` is the Node/Fly entry: health checks, buyer IP, compression and static files on Remix's server middleware, with Vite's dev middleware in front during development.
+- `app/entry.oxygen.ts` is the Oxygen Worker.
+- `vite/oxygen-adapter.ts` is the @marko/run adapter for Oxygen. MiniOxygen's Vite plugin runs the Worker in workerd for dev and preview, and the build is rearranged into Oxygen's `dist/server` and `dist/client` layout.
 
 ## License
 
