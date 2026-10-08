@@ -1,0 +1,33 @@
+.richText {
+  font-size: 1rem;
+  line-height: 1.5;
+  & h2,
+  & h3,
+  & ol,
+  & p,
+  & ul {
+    margin: 0 0 12px;
+  }
+  & ul li {
+    line-height: 1.6em;
+    padding-left: 1em;
+    position: relative;
+  }
+  & ul li::before {
+    content: "•";
+    left: 0;
+    position: absolute;
+  }
+  & a {
+    color: var(--color-blue-brand);
+  }
+}
+
+.productDescription {
+  font-size: 0.75rem;
+  line-height: 16px;
+  @media (min-width: 1400px) {
+    font-size: 1rem;
+    line-height: 1.4;
+  }
+}

@@ -1,6 +1,4 @@
-import * as schema from "remix/data-schema";
-import { email, maxLength } from "remix/data-schema/checks";
-import * as formData from "remix/data-schema/form-data";
+import * as v from "valibot";
 
 export const BACK_IN_STOCK_TAG = "back-in-stock-subscriber";
 
@@ -21,35 +19,44 @@ const ALLOWED_FIELDS = new Set([
   "product-handle",
   "variant-id",
 ]);
-const EmailFormSchema = formData.object({
-  email: formData.field(
-    schema
-      .string()
-      .pipe(maxLength(254), email())
-      .refine((value) => value.trim() === value)
-      .transform((value) => value.toLowerCase()),
+const EmailSchema = v.pipe(
+  v.string(),
+  v.maxLength(254),
+  v.email(),
+  v.check((value) => value.trim() === value),
+  v.transform((value) => value.toLowerCase()),
+);
+const ConsentSchema = v.pipe(
+  v.literal("yes"),
+  v.transform((): true => true),
+);
+const OptionalProductValueSchema = v.union([
+  v.pipe(
+    v.string(),
+    v.transform((value) => value || undefined),
   ),
-});
-const ConsentFormSchema = formData.object({
-  consent: formData.field(schema.literal("yes").transform((): true => true)),
-});
-const OptionalProductValueSchema = schema.union([
-  schema.string().transform((value) => value || undefined),
-  schema.null_().transform(() => undefined),
-  schema.instanceof_(Blob).transform(() => undefined),
+  v.pipe(
+    v.null(),
+    v.transform(() => undefined),
+  ),
+  v.pipe(
+    v.instance(Blob),
+    v.transform(() => undefined),
+  ),
 ]);
-const ProductFormSchema = schema
-  .object({
+const ProductFormSchema = v.pipe(
+  v.object({
     productHandle: OptionalProductValueSchema,
     variantId: OptionalProductValueSchema,
-  })
-  .refine(
+  }),
+  v.check(
     ({ productHandle, variantId }) =>
       Boolean(productHandle) === Boolean(variantId) &&
       (!productHandle || /^[a-z0-9][a-z0-9-]{0,254}$/.test(productHandle)) &&
       (!variantId ||
         /^gid:\/\/shopify\/ProductVariant\/[1-9][0-9]*$/.test(variantId)),
-  );
+  ),
+);
 
 export function parseSubscriptionForm(
   form: FormData,
@@ -60,15 +67,15 @@ export function parseSubscriptionForm(
     }
   }
 
-  let emailResult = schema.parseSafe(EmailFormSchema, form);
+  let emailResult = v.safeParse(EmailSchema, form.get("email"));
   if (!emailResult.success) {
     return { message: "Please enter a valid email address." };
   }
-  let consentResult = schema.parseSafe(ConsentFormSchema, form);
+  let consentResult = v.safeParse(ConsentSchema, form.get("consent"));
   if (!consentResult.success) {
     return { message: "Please confirm that you agree to receive emails." };
   }
-  let productResult = schema.parseSafe(ProductFormSchema, {
+  let productResult = v.safeParse(ProductFormSchema, {
     productHandle: form.get("product-handle"),
     variantId: form.get("variant-id"),
   });
@@ -76,10 +83,10 @@ export function parseSubscriptionForm(
     return { message: "The product subscription is invalid." };
   }
   return {
-    consent: consentResult.value.consent,
-    email: emailResult.value.email,
-    productHandle: productResult.value.productHandle,
-    variantId: productResult.value.variantId,
+    consent: consentResult.output,
+    email: emailResult.output,
+    productHandle: productResult.output.productHandle,
+    variantId: productResult.output.variantId,
   };
 }
 

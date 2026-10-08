@@ -1,0 +1,21 @@
+import type { MarketPathPrefix } from "../../lib/market.ts";
+import { parseRichText } from "../../lib/rich-text.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  pathPrefix?: MarketPathPrefix;
+  value: string;
+  variant?: "product-description";
+}
+
+<div
+  data-rich-text="true"
+  class=[
+    styles.richText,
+    input.variant === "product-description" && styles.productDescription,
+  ]
+>
+  <for|node| of=parseRichText(input.value).children ?? []>
+    <rich-text-node node=node pathPrefix=input.pathPrefix ?? ""/>
+  </for>
+</div>

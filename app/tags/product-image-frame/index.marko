@@ -1,0 +1,51 @@
+import type { ImageData } from "../../data/storefront.ts";
+import { shopifyImageUrl } from "../../lib/shopify-image.ts";
+import styles from "../product-details/style.module.css";
+
+export interface Input {
+  image: ImageData;
+  index: number;
+  mobile?: boolean;
+}
+
+// A blurred 32px preview shows until the full image loads.
+<let/loaded=false>
+<div/frame
+  data-product-image=(
+    input.mobile ? undefined : input.image.id || input.image.url
+  )
+  data-loaded=loaded && "true"
+  class=styles.productImageFrame
+>
+  <img
+    src=shopifyImageUrl(input.image.url, 32)
+    alt=""
+    aria-hidden="true"
+    draggable="false"
+    data-preview-image="true"
+  >
+  <shopify-image
+    image=input.image
+    alt=input.image.altText ?? "Product image"
+    sizes=input.mobile ? "100vw" : "(min-width: 1400px) 50vw, 60vw"
+    loading=input.index === 0 ? "eager" : "lazy"
+  />
+</div>
+<script>
+  const image = frame().querySelector<HTMLImageElement>(
+    "img:not([data-preview-image])",
+  );
+  const settle = () => {
+    loaded = true;
+  };
+  if (image?.complete) {
+    settle();
+  } else if (image) {
+    image.addEventListener("load", settle, { once: true });
+    image.addEventListener("error", settle, { once: true });
+    $signal.onabort = () => {
+      image.removeEventListener("load", settle);
+      image.removeEventListener("error", settle);
+    };
+  }
+</script>

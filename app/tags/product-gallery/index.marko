@@ -1,0 +1,165 @@
+import type { ImageData } from "../../data/storefront.ts";
+import styles from "../product-details/style.module.css";
+
+export interface Input {
+  images: ImageData[];
+}
+
+static function imageKey(image: ImageData): string {
+  return image.id || image.url;
+}
+
+static function scrollToSlide(gallery: HTMLElement, index: number) {
+  let slides = gallery.querySelectorAll("[data-mobile-slide]");
+  let next = Math.max(0, Math.min(slides.length - 1, index));
+  gallery.scrollTo({
+    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth",
+    left: next * gallery.clientWidth,
+  });
+}
+
+// Desktop stacks the images and fades those away from the header; mobile is
+// a scroll-snap carousel whose controls appear once it is interactive.
+<const/{ images }=input>
+<const/firstImageKey=images[0] && imageKey(images[0])>
+<let/hydrated=false>
+<let/mobileIndex=0>
+
+<div class=styles.galleryColumn>
+  <div/desktop class=styles.desktopGallery>
+    <if=images.length>
+      <for|image, index| of=images by=imageKey>
+        <product-image-frame image=image index=index/>
+      </for>
+    </if>
+    <else>
+      <div aria-label="Product image unavailable" class=styles.imageFallback/>
+    </else>
+  </div>
+
+  <section aria-label="Product images" class=styles.mobileGalleryShell>
+    <div/mobile class=styles.mobileGallery>
+      <if=images.length>
+        <for|image, index| of=images by=imageKey>
+          <div data-mobile-slide="true">
+            <product-image-frame image=image index=index mobile/>
+          </div>
+        </for>
+      </if>
+      <else>
+        <div data-mobile-slide="true">
+          <div
+            aria-label="Product image unavailable"
+            class=styles.imageFallback
+          />
+        </div>
+      </else>
+    </div>
+    <if=(hydrated && images.length > 1)>
+      <div class=styles.galleryControls>
+        <button
+          type="button"
+          aria-label="Previous image"
+          disabled=mobileIndex === 0
+          onClick() {
+            scrollToSlide(mobile(), mobileIndex - 1);
+          }
+        >
+          <app-icon name="chevron-left"/>
+        </button>
+        <div aria-label=`Image ${mobileIndex + 1} of ${images.length}`>
+          <for|image, index| of=images by=imageKey>
+            <span data-active=index === mobileIndex && "true"/>
+          </for>
+        </div>
+        <button
+          type="button"
+          aria-label="Next image"
+          disabled=mobileIndex === images.length - 1
+          onClick() {
+            scrollToSlide(mobile(), mobileIndex + 1);
+          }
+        >
+          <app-icon name="chevron-right"/>
+        </button>
+      </div>
+    </if>
+  </section>
+</div>
+
+<script>
+  const gallery = desktop();
+  const motion = matchMedia("(prefers-reduced-motion: reduce)");
+  let frame = 0;
+  function updateOpacities() {
+    frame = 0;
+    let frames = gallery.querySelectorAll<HTMLElement>("[data-product-image]");
+    if (motion.matches) {
+      frames.forEach((element) => (element.style.opacity = "1"));
+      return;
+    }
+    let headerHeight =
+      Number.parseInt(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--header-height",
+        ),
+      ) || 136;
+    let saleHeight =
+      Number.parseInt(
+        getComputedStyle(document.body).getPropertyValue(
+          "--store-wide-sale-height",
+        ),
+      ) || 0;
+    let fadeRange = window.innerHeight * 0.4;
+    frames.forEach((element) => {
+      let distance = Math.abs(
+        element.getBoundingClientRect().top - headerHeight - saleHeight,
+      );
+      let normalized = Math.min(1, distance / fadeRange);
+      element.style.opacity = String(
+        Math.max(0.2, 1 - normalized * normalized),
+      );
+    });
+  }
+  function requestUpdate() {
+    frame ||= requestAnimationFrame(updateOpacities);
+  }
+  updateOpacities();
+  window.addEventListener("scroll", requestUpdate, { passive: true });
+  window.addEventListener("resize", requestUpdate);
+  motion.addEventListener("change", requestUpdate);
+  $signal.onabort = () => {
+    window.removeEventListener("scroll", requestUpdate);
+    window.removeEventListener("resize", requestUpdate);
+    motion.removeEventListener("change", requestUpdate);
+    if (frame) cancelAnimationFrame(frame);
+  };
+</script>
+<script>
+  const carousel = mobile();
+  let frame = 0;
+  function updateIndex() {
+    frame = 0;
+    mobileIndex = Math.round(
+      carousel.scrollLeft / Math.max(1, carousel.clientWidth),
+    );
+  }
+  function requestUpdate() {
+    frame ||= requestAnimationFrame(updateIndex);
+  }
+  hydrated = true;
+  carousel.addEventListener("scroll", requestUpdate, { passive: true });
+  $signal.onabort = () => {
+    carousel.removeEventListener("scroll", requestUpdate);
+    if (frame) cancelAnimationFrame(frame);
+  };
+</script>
+// A selected variant's image moves first; bring the carousel back to it.
+<script>
+  if (firstImageKey) {
+    mobile().scrollTo({ left: 0, behavior: "instant" });
+    mobileIndex = 0;
+  }
+</script>

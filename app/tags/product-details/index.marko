@@ -1,0 +1,296 @@
+import {
+  canAddToCart,
+  createProductFormStore,
+  formatMoney,
+  type ProductFormStore,
+} from "@shopify/hydrogen";
+
+import type { NavigationMenuData, ProductData } from "../../data/storefront.ts";
+import { getCartApiPath } from "../../lib/cart-routes.ts";
+import { marketPath, type ActiveMarket } from "../../lib/market.ts";
+import {
+  addToCartLabel,
+  canAddServerVariant,
+  isDefaultTitleOption,
+  orderedProductImages,
+  productErrorMessages,
+  serverProductOptions,
+  variantHref,
+  waitForAddToCartCheck,
+  type ProductState,
+} from "../../lib/product.ts";
+import { productSubscriptionsEnabled } from "../../lib/subscription.ts";
+client import { getBrowserCartStore } from "../../lib/browser/cart-store.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  market: ActiveMarket;
+  menu: NavigationMenuData;
+  product: ProductData;
+  search: string;
+  shopPayStoreUrl: string;
+}
+
+// The server renders the URL's variant. Once interactive, the product form
+// store selects variants locally and replaces the URL to match.
+<const/{ market, product }=input>
+<let/store=null as ProductFormStore<ProductData> | null>
+<let/state=null as ProductState | null>
+<let/pending=false>
+<let/submission=0>
+<let/submissionError="">
+
+<const/selectedVariant=(
+  state ? state.selectedVariant : product.selectedOrFirstAvailableVariant
+)>
+<const/options=(state?.options ?? serverProductOptions(product)).filter(
+  (option) => !isDefaultTitleOption(option),
+)>
+<const/visibleOptions=(
+  options.every((option) => option.values.length <= 1) ? [] : options
+)>
+<const/addEnabled=(
+  state ? canAddToCart(product, state.options) : canAddServerVariant(product)
+)>
+<const/price=selectedVariant?.price ?? product.priceRange.minVariantPrice>
+<const/images=orderedProductImages(
+  product.images.nodes,
+  selectedVariant?.image,
+)>
+<const/errors=[
+  ...new Set(
+    [
+      submissionError,
+      ...(state && submission > 0 ? productErrorMessages(state) : []),
+    ].filter(Boolean),
+  ),
+]>
+
+<div class=styles.productPage>
+  <nav aria-label="Product collections" class=styles.sidebar>
+    <ul>
+      <for|item| of=input.menu.items by="id">
+        <li><a href=item.url>${item.title}</a></li>
+      </for>
+    </ul>
+  </nav>
+
+  <product-gallery images=images/>
+
+  <section class=styles.details>
+    <div class=styles.heading>
+      <if=product.category?.name>
+        <p data-category="true">${product.category.name}</p>
+      </if>
+      <h1>${product.title}</h1>
+      <p class=styles.price aria-live="polite">
+        <if=selectedVariant?.compareAtPrice>
+          <s>
+            ${
+              formatMoney(selectedVariant.compareAtPrice, {
+                locale: market.locale,
+              }).toString()
+            }
+          </s>
+        </if>
+        <span data-sale=selectedVariant?.compareAtPrice && "true">
+          ${formatMoney(price, { locale: market.locale }).toString()}
+        </span>
+      </p>
+    </div>
+
+    <div class=styles.purchaseGroup>
+      <div class=styles.purchase>
+        <if=visibleOptions.length>
+          <div class=styles.options>
+            <for|option| of=visibleOptions by="name">
+              <const/selectedName=option.values.find((value) => value.selected)
+                ?.name>
+              <option-menu class=styles.optionMenu>
+                <summary>
+                  <span>
+                    <span class=styles.visuallyHidden>
+                      ${option.name}:${" "}
+                    </span>${selectedName ?? option.name}
+                  </span>
+                  <app-icon name="chevron-down"/>
+                </summary>
+                <div>
+                  <for|value| of=option.values by="name">
+                    <if=!value.exists>
+                      <button type="button" disabled>${value.name}</button>
+                    </if>
+                    <else>
+                      <a
+                        href=variantHref(
+                          value.handle,
+                          value.selectedOptions,
+                          product.options,
+                          input.search,
+                          market.pathPrefix,
+                        )
+                        aria-current=value.selected && "true"
+                        onClick(event, link) {
+                          // Other products in a combined listing, and every
+                          // value before the store exists, are plain links.
+                          if (!store || value.handle !== product.handle) return;
+                          event.preventDefault();
+                          link.closest("details")?.removeAttribute("open");
+                          let result = store.selectOption(
+                            option.name,
+                            value.name,
+                          );
+                          if (result.status === "invalid") return;
+                          let href = variantHref(
+                            product.handle,
+                            result.selectedOptions,
+                            product.options,
+                            location.search,
+                            market.pathPrefix,
+                          );
+                          if (result.status === "unresolved") {
+                            location.replace(href);
+                          } else {
+                            history.replaceState(history.state, "", href);
+                          }
+                        }
+                      >
+                        <span>
+                          ${
+                            value.available
+                              ? value.name
+                              : `${value.name} — Sold out`
+                          }
+                        </span>
+                        <if=value.selected>
+                          <app-icon name="check"/>
+                        </if>
+                      </a>
+                    </else>
+                  </for>
+                </div>
+              </option-menu>
+            </for>
+          </div>
+        </if>
+
+        <div class=[
+          styles.buyActions,
+          !visibleOptions.length && styles.buyActionsOnly,
+        ]>
+          <form
+            action=getCartApiPath(market.pathPrefix)
+            method="post"
+            aria-busy=pending && "true"
+            class=[styles.addForm, pending && styles.addPending]
+            async onSubmit(event) {
+              event.preventDefault();
+              if (!store || !addEnabled) return;
+
+              let current = ++submission;
+              submissionError = "";
+              pending = true;
+              let startedAt = Date.now();
+              try {
+                await store.handleFormSubmit(event);
+              } catch (error) {
+                if (current === submission) {
+                  submissionError =
+                    error instanceof Error
+                      ? error.message
+                      : "The item could not be added.";
+                }
+              } finally {
+                if (current === submission) {
+                  await waitForAddToCartCheck(startedAt);
+                  pending = false;
+                }
+              }
+            }
+          >
+            <input
+              type="hidden"
+              name="merchandiseId"
+              value=selectedVariant?.id ?? ""
+            >
+            <input type="hidden" name="quantity" value="1">
+            <button
+              name="add-to-cart"
+              type="submit"
+              disabled=!addEnabled || pending
+              aria-label=pending ? "Adding to cart" : undefined
+            >
+              <if=pending>
+                <app-icon name="check"/>
+              </if>
+              <else>${addToCartLabel(product, selectedVariant)}</else>
+            </button>
+            <if=errors.length>
+              <div role="alert" class=styles.error>
+                <for|message| of=errors>
+                  <p>${message}</p>
+                </for>
+              </div>
+            </if>
+          </form>
+          <if=selectedVariant && addEnabled>
+            <shop-pay-button
+              storeUrl=input.shopPayStoreUrl
+              variantId=selectedVariant.id
+            />
+          </if>
+        </div>
+      </div>
+      <if=(
+        selectedVariant &&
+        !selectedVariant.availableForSale &&
+        productSubscriptionsEnabled(product)
+      )>
+        <subscribe-form
+          action=marketPath("/subscribe", market.pathPrefix)
+          mode="back-in-stock"
+          productHandle=product.handle
+          variantId=selectedVariant.id
+        />
+      </if>
+    </div>
+
+    <if=product.customDescription>
+      <rich-text
+        pathPrefix=market.pathPrefix
+        value=product.customDescription.value
+        variant="product-description"
+      />
+    </if>
+    <else if=product.description>
+      <p class=styles.description>${product.description}</p>
+    </else>
+
+    <if=product.technicalDescription>
+      <div class=styles.technical>
+        <h2>Technical Description</h2>
+        <rich-text
+          pathPrefix=market.pathPrefix
+          value=product.technicalDescription.value
+          variant="product-description"
+        />
+      </div>
+    </if>
+  </section>
+</div>
+
+<script>
+  const cartStore = getBrowserCartStore(undefined, input.market.pathPrefix);
+  if (cartStore) {
+    const formStore = createProductFormStore(input.product, cartStore);
+    const unsubscribe = formStore.subscribe((next) => {
+      state = next;
+    });
+    store = formStore;
+    state = formStore.getState();
+    $signal.onabort = () => {
+      unsubscribe();
+      formStore.destroy();
+    };
+  }
+</script>

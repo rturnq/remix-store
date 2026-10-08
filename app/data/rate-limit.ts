@@ -32,9 +32,9 @@ type Entry = { count: number; resetAt: number };
  * app's Fly and Oxygen targets. Production must additionally enforce a shared
  * edge/WAF quota before enabling the subscription route; that deployment gate
  * coordinates abuse protection without coupling application code to a storage
- * vendor. A future shared adapter may instead be injected into
- * `createApp({subscribe: {rateLimiter}})` and must implement `consumeMany` with
- * one all-or-nothing storage transaction.
+ * vendor. A future shared adapter may instead replace
+ * `subscriptionRateLimiter` and must implement `consumeMany` with one
+ * all-or-nothing storage transaction.
  */
 export class FixedWindowRateLimiter implements RateLimiter {
   readonly #entries = new Map<string, Entry>();

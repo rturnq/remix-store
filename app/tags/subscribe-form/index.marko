@@ -1,0 +1,133 @@
+import * as v from "valibot";
+
+import styles from "./style.module.css";
+
+export interface SubscribeResponse {
+  error?: string;
+  message?: string;
+  success: boolean;
+}
+
+export interface Input {
+  action: string;
+  initialResult?: SubscribeResponse;
+  mode: "newsletter" | "back-in-stock";
+  productHandle?: string;
+  variantId?: string;
+}
+
+static const SubscribeResponseSchema = v.object({
+  error: v.optional(v.string()),
+  message: v.optional(v.string()),
+  success: v.boolean(),
+});
+
+static function urlEncodedForm(form: HTMLFormElement): URLSearchParams {
+  let body = new URLSearchParams();
+  for (let [name, value] of new FormData(form)) {
+    if (!(value instanceof File)) body.append(name, value);
+  }
+  return body;
+}
+
+// A plain POST form without JavaScript; enhanced, it submits in place and
+// shows the result.
+<const/backInStock=input.mode === "back-in-stock">
+<const/inputId=backInStock ? "back-in-stock-email" : "subscribe-email">
+<let/pending=false>
+<let/result=input.initialResult>
+<let/submission=0>
+<const/complete=result?.success === true>
+
+<section
+  aria-label=backInStock ? "Notify me when it’s back" : undefined
+  class=backInStock ? styles.backInStockSection : styles.formSection
+>
+  <form
+    action=input.action
+    method="post"
+    aria-busy=pending && "true"
+    class=backInStock ? styles.backInStockForm : styles.form
+    async onSubmit(event, form) {
+      event.preventDefault();
+      if (pending || result?.success) return;
+      let body = urlEncodedForm(form);
+      let current = ++submission;
+      pending = true;
+      result = undefined;
+      try {
+        let response = await fetch(form.action, {
+          method: "POST",
+          body,
+          headers: { Accept: "application/json" },
+        });
+        let next = v.parse(SubscribeResponseSchema, await response.json());
+        if (current === submission) result = next;
+      } catch {
+        if (current === submission) {
+          result = {
+            error: "Something went wrong. Please try again.",
+            success: false,
+          };
+        }
+      } finally {
+        if (current === submission) pending = false;
+      }
+    }
+  >
+    <label for=inputId class=styles.visuallyHidden>
+      ${backInStock ? "Email address for stock notifications" : "Email address"}
+    </label>
+    <div class=backInStock ? styles.notifyRow : styles.newsletterRow>
+      <input
+        id=inputId
+        type="email"
+        name="email"
+        autocomplete="email"
+        inputmode="email"
+        maxlength=254
+        placeholder="run@remix.run"
+        required
+        disabled=pending
+        class=[
+          backInStock ? styles.backInStockInput : styles.emailInput,
+          complete && styles.successInput,
+        ]
+        onInput() {
+          if (result) result = undefined;
+        }
+      >
+      <button
+        type="submit"
+        disabled=pending || complete
+        class=[
+          backInStock ? styles.notifyButton : styles.subscribeButton,
+          complete && styles.successButton,
+        ]
+      >
+        <if=pending>${backInStock ? "Signing up…" : "Subscribing…"}</if>
+        <else if=complete>
+          <app-icon name="check"/>
+        </else>
+        <else>${backInStock ? "Notify me" : "Subscribe"}</else>
+      </button>
+    </div>
+    <input type="hidden" name="consent" value="yes">
+    <if=backInStock>
+      <input type="hidden" name="product-handle" value=input.productHandle>
+      <input type="hidden" name="variant-id" value=input.variantId>
+    </if>
+    <if=result?.success>
+      <p role="status" class=styles.success>${result.message}</p>
+    </if>
+    <else if=result?.error>
+      <p role="alert" class=styles.error>${result.error}</p>
+    </else>
+    <else if=backInStock>
+      <p class=styles.helper>
+        This size is currently out of stock. Sign up to be notified by email
+        when restock this size.
+      </p>
+    </else>
+  </form>
+</section>

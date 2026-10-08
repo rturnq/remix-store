@@ -1,0 +1,70 @@
+import type { MarketPathPrefix } from "../../lib/market.ts";
+import { safeHref, type RichTextNode } from "../../lib/rich-text.ts";
+
+export interface Input {
+  node: RichTextNode;
+  pathPrefix: MarketPathPrefix;
+}
+
+<const/{ node, pathPrefix }=input>
+<define/Children>
+  <for|child| of=node.children ?? []>
+    <rich-text-node node=child pathPrefix=pathPrefix/>
+  </for>
+</define>
+
+<if=node.type === "text">
+  <span>
+    <${node.underline && "u"}>
+      <${node.italic && "em"}>
+        <${node.bold && "strong"}>${node.value ?? ""}</>
+      </>
+    </>
+  </span>
+</if>
+<else if=node.type === "paragraph">
+  <p>
+    <if=node.children?.length>
+      <Children/>
+    </if>
+    <else><br></else>
+  </p>
+</else>
+<else if=node.type === "heading">
+  <if=node.level === 3>
+    <h3>
+      <Children/>
+    </h3>
+  </if>
+  <else>
+    <h2>
+      <Children/>
+    </h2>
+  </else>
+</else>
+<else if=node.type === "list" || node.type === "unordered-list">
+  <ul>
+    <Children/>
+  </ul>
+</else>
+<else if=node.type === "ordered-list">
+  <ol>
+    <Children/>
+  </ol>
+</else>
+<else if=node.type === "list-item">
+  <li>
+    <Children/>
+  </li>
+</else>
+<else if=node.type === "link" && safeHref(node.url, pathPrefix)>
+  <const/href=safeHref(node.url, pathPrefix)!>
+  <a href=href rel=href.startsWith("http") ? "noreferrer" : undefined>
+    <Children/>
+  </a>
+</else>
+<else>
+  <span>
+    <Children/>
+  </span>
+</else>

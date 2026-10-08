@@ -1,0 +1,19 @@
+import styles from "./style.module.css";
+
+<const/{ action, canonicalUrl, result }=$global.data>
+<app-document
+  canonicalUrl=canonicalUrl
+  title="Subscribe"
+  description="Subscribe for new products, special offers, and store news."
+>
+  <main>
+    <page-title title="Subscribe"/>
+    <div class=styles.content>
+      <p>
+        Stay up to date with our latest products, special offers, and news.
+        Enter your email below to subscribe.
+      </p>
+      <subscribe-form action=action initialResult=result mode="newsletter"/>
+    </div>
+  </main>
+</app-document>

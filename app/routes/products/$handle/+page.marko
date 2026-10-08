@@ -1,0 +1,48 @@
+import type { ProductData } from "../../../data/storefront.ts";
+
+static function analyticsProduct(product: ProductData) {
+  let variant = product.selectedOrFirstAvailableVariant;
+  return {
+    id: product.id,
+    title: product.title,
+    price: variant?.price.amount ?? product.priceRange.minVariantPrice.amount,
+    vendor: product.vendor,
+    variantId: variant?.id ?? product.id,
+    variantTitle: variant?.title ?? product.title,
+    quantity: 1,
+    sku: variant?.sku,
+  };
+}
+
+static function productSocialImage(source: string): string {
+  try {
+    let url = new URL(source);
+    url.searchParams.set("width", "1200");
+    url.searchParams.set("height", "630");
+    url.searchParams.set("pad_color", "000000");
+    return url.toString();
+  } catch {
+    return source;
+  }
+}
+
+<const/{ canonicalUrl, menu, product, search, shopPayStoreUrl }=$global.data>
+<const/firstImage=(product.images.nodes[0])>
+<app-document
+  canonicalUrl=canonicalUrl
+  title=product.seo.title ?? product.title
+  description=product.seo.description ?? product.description
+  socialImage=firstImage?.url && productSocialImage(firstImage.url)
+  socialType="product"
+>
+  <main>
+    <product-viewed product=analyticsProduct(product)/>
+    <product-details
+      market=$global.platform.market
+      menu=menu
+      product=product
+      search=search
+      shopPayStoreUrl=shopPayStoreUrl
+    />
+  </main>
+</app-document>

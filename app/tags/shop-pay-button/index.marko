@@ -1,0 +1,52 @@
+import {
+  renderShopPayButton,
+  SHOP_PAY_BUTTON_TAG_NAME,
+} from "@shopify/hydrogen";
+
+import styles from "../product-details/style.module.css";
+
+export interface Input {
+  storeUrl: string;
+  variantId: string;
+}
+
+// Hydrogen exposes only width and borderRadius. Keep this override in sync with
+// its internal `.shop-pay-button` class on upgrades to retain the v3 height.
+static const HEIGHT_OVERRIDE_ATTRIBUTE = "data-remix-height-override";
+static {
+  const HEIGHT_OVERRIDE = `
+  <style ${HEIGHT_OVERRIDE_ATTRIBUTE}>
+    .shop-pay-button { height: 64px; }
+    @media (min-width: 1400px) {
+      .shop-pay-button { height: 66px; }
+    }
+  </style>
+`;
+}
+
+<const/html=renderShopPayButton({
+  checkoutUrl: input.storeUrl,
+  variants: [{ id: input.variantId, quantity: 1 }],
+  width: "100%",
+  borderRadius: "54px",
+}).replace("</template>", `${HEIGHT_OVERRIDE}</template>`)>
+
+<div/container class=styles.shopPay>$!{html}</div>
+// A client re-render inserts the button without its declarative shadow root
+// template, so add the override to the shadow root the element creates.
+// Keyed on the variant: reading `html` here would ship it to the browser.
+<script>
+  if (input.variantId) {
+    const shadowRoot = container().querySelector(
+      SHOP_PAY_BUTTON_TAG_NAME,
+    )?.shadowRoot;
+    if (
+      shadowRoot &&
+      !shadowRoot.querySelector(`style[${HEIGHT_OVERRIDE_ATTRIBUTE}]`)
+    ) {
+      const template = document.createElement("template");
+      template.innerHTML = HEIGHT_OVERRIDE;
+      shadowRoot.append(template.content);
+    }
+  }
+</script>

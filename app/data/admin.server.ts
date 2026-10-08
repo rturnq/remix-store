@@ -1,13 +1,4 @@
-import {
-  any,
-  array,
-  nullable,
-  object,
-  optional,
-  parseSafe,
-  string,
-  type Schema,
-} from "remix/data-schema";
+import * as v from "valibot";
 
 // Stable Shopify Admin version verified through publicApiVersions on 2026-08-13.
 // `pnpm typecheck` validates every document below against its pinned schema.
@@ -45,46 +36,46 @@ interface JsonObject {
   [key: string]: JsonValue;
 }
 
-const GraphqlEnvelopeSchema = object({
-  // Passthrough retains operation fields for the operation-specific schema
-  // supplied to request(); data-schema types an empty object shape as `{}`.
-  data: optional(nullable(object({}, { unknownKeys: "passthrough" }))),
-  errors: optional(array(any())),
+const GraphqlEnvelopeSchema = v.object({
+  // Loose keeps the operation's fields for the schema request() is given.
+  data: v.optional(v.nullable(v.looseObject({}))),
+  errors: v.optional(v.array(v.any())),
 });
-const MarketingConsentSchema = nullable(
-  object({ marketingOptInLevel: string() }),
-).transform((consent) => consent?.marketingOptInLevel ?? null);
-const CustomerByEmailSchema = object({
-  customerByIdentifier: optional(
-    nullable(
-      object({
-        id: string(),
-        emailMarketingConsent: optional(MarketingConsentSchema),
+const MarketingConsentSchema = v.pipe(
+  v.nullable(v.object({ marketingOptInLevel: v.string() })),
+  v.transform((consent) => consent?.marketingOptInLevel ?? null),
+);
+const CustomerByEmailSchema = v.object({
+  customerByIdentifier: v.optional(
+    v.nullable(
+      v.object({
+        id: v.string(),
+        emailMarketingConsent: v.optional(MarketingConsentSchema),
       }),
     ),
   ),
 });
-const AdminNodeSchema = object({ id: string() });
-const AdminUserErrorSchema = object({
-  field: optional(nullable(array(string()))),
-  message: string(),
+const AdminNodeSchema = v.object({ id: v.string() });
+const AdminUserErrorSchema = v.object({
+  field: v.optional(v.nullable(v.array(v.string()))),
+  message: v.string(),
 });
-const CustomerCreateSchema = object({
-  customerCreate: object({
-    customer: optional(nullable(AdminNodeSchema)),
-    userErrors: array(AdminUserErrorSchema),
+const CustomerCreateSchema = v.object({
+  customerCreate: v.object({
+    customer: v.optional(v.nullable(AdminNodeSchema)),
+    userErrors: v.array(AdminUserErrorSchema),
   }),
 });
-const TagsAddSchema = object({
-  tagsAdd: object({
-    node: optional(nullable(AdminNodeSchema)),
-    userErrors: array(AdminUserErrorSchema),
+const TagsAddSchema = v.object({
+  tagsAdd: v.object({
+    node: v.optional(v.nullable(AdminNodeSchema)),
+    userErrors: v.array(AdminUserErrorSchema),
   }),
 });
-const CustomerConsentUpdateSchema = object({
-  customerEmailMarketingConsentUpdate: object({
-    customer: optional(nullable(AdminNodeSchema)),
-    userErrors: array(AdminUserErrorSchema),
+const CustomerConsentUpdateSchema = v.object({
+  customerEmailMarketingConsentUpdate: v.object({
+    customer: v.optional(v.nullable(AdminNodeSchema)),
+    userErrors: v.array(AdminUserErrorSchema),
   }),
 });
 
@@ -100,7 +91,7 @@ export function createAdminCustomerClient(options: AdminClientOptions) {
   async function request<Output>(
     query: string,
     variables: JsonObject,
-    dataSchema: Schema<unknown, Output>,
+    dataSchema: v.GenericSchema<unknown, Output>,
   ): Promise<Output> {
     let response: Response;
     try {
@@ -265,13 +256,13 @@ async function parseGraphqlEnvelope(response: Response) {
   return parseAdminResponse(GraphqlEnvelopeSchema, parsed);
 }
 
-function parseAdminResponse<Input, Output>(
-  schema: Schema<Input, Output>,
-  value: Input,
+function parseAdminResponse<Output>(
+  schema: v.GenericSchema<unknown, Output>,
+  value: unknown,
 ): Output {
-  let result = parseSafe(schema, value);
+  let result = v.safeParse(schema, value);
   if (!result.success) throw new AdminApiError("response");
-  return result.value;
+  return result.output;
 }
 
 const CUSTOMER_BY_EMAIL = `#graphql

@@ -1,0 +1,34 @@
+export interface Input {
+  class?: Marko.HTML.Details["class"];
+  content?: Marko.Body;
+}
+
+// A <details> menu that closes on outside clicks and focus, and on Escape
+// (returning focus to its summary).
+<details/menu class=input.class>
+  <${input.content}/>
+</details>
+<script>
+  const element = menu();
+  function close(restoreFocus = false) {
+    if (!element.open) return;
+    element.open = false;
+    if (restoreFocus) element.querySelector("summary")?.focus();
+  }
+  function onOutside(event: Event) {
+    if (!(event.target instanceof Node && element.contains(event.target))) {
+      close();
+    }
+  }
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") close(true);
+  }
+  document.addEventListener("pointerdown", onOutside);
+  document.addEventListener("focusin", onOutside);
+  document.addEventListener("keydown", onKeyDown);
+  $signal.onabort = () => {
+    document.removeEventListener("pointerdown", onOutside);
+    document.removeEventListener("focusin", onOutside);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+</script>
