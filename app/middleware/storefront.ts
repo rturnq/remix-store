@@ -25,7 +25,7 @@ import {
 } from "../data/storefront.ts";
 import { localizeInternalUrl, type ActiveMarket } from "../lib/market.ts";
 import { routeTemplates } from "../lib/route-templates.ts";
-import type { Env } from "../runtime.ts";
+import type { AppPlatform, Env } from "../runtime.ts";
 
 /** The store-wide data every document renders around its page. */
 export interface ShellData {
@@ -40,6 +40,16 @@ declare module "@marko/run" {
   interface Context {
     storefront: AppStorefrontClient;
     shell: ShellData;
+  }
+}
+
+// Tags outside the routes see `$global` as `Marko.Global`.
+declare global {
+  namespace Marko {
+    interface Global {
+      shell?: ShellData;
+      platform?: AppPlatform;
+    }
   }
 }
 

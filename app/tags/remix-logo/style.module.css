@@ -1,0 +1,28 @@
+.logo {
+  display: block;
+  height: 15px;
+  overflow: visible;
+  width: 153px;
+  & [data-logo-mark] {
+    fill: var(--color-white);
+    transition: fill 300ms ease-in-out;
+  }
+  & [data-logo-letter] {
+    opacity: 0;
+    transform: translateY(-140px);
+    transition:
+      opacity 300ms ease-in-out,
+      transform 300ms ease-in-out;
+  }
+  &[data-expanded] [data-logo-mark] {
+    fill: var(--color-blue-brand);
+  }
+  &[data-expanded] [data-logo-letter] {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @media (min-width: 430px) {
+    height: 20px;
+    width: 203px;
+  }
+}

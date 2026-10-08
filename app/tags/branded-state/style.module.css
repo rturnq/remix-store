@@ -1,0 +1,87 @@
+.state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 140px 0;
+  @media (min-width: 810px) {
+    min-height: 0;
+    padding: 200px 0 240px;
+  }
+}
+
+.content {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  padding: 0 20px;
+  @media (min-width: 810px) {
+    gap: 48px;
+  }
+}
+
+.copy {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: center;
+  & h1 {
+    font-family: var(--font-title);
+    font-size: 1.875rem;
+    font-weight: 900;
+    letter-spacing: -0.2em;
+    line-height: 1.05;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  & p {
+    font-size: 0.875rem;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+  @media (min-width: 810px) {
+    gap: 24px;
+    & h1 {
+      font-size: 3rem;
+    }
+    & p {
+      font-size: 1rem;
+    }
+  }
+}
+
+.spreadLink {
+  align-items: center;
+  background: var(--color-white);
+  border-radius: 54px;
+  color: var(--color-black);
+  display: flex;
+  font-size: 1rem;
+  font-weight: 600;
+  gap: 10px;
+  height: 64px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px 24px;
+  position: relative;
+  text-decoration: none;
+  transition: gap 300ms ease;
+  width: 240px;
+  &:hover,
+  &:focus-visible {
+    color: var(--color-black);
+  }
+  & svg {
+    fill: currentColor;
+    height: 32px;
+    transition: transform 300ms ease;
+    width: 32px;
+  }
+  &:hover svg,
+  &:focus-visible svg {
+    transform: translateX(-4px);
+  }
+}

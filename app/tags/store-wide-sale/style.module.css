@@ -1,0 +1,73 @@
+.marquee {
+  background: rgba(255, 81, 72, 0.25);
+  color: var(--color-red-brand);
+  height: 48px;
+  left: 0;
+  overflow: hidden;
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 100%;
+  z-index: 20;
+}
+
+.track {
+  align-items: center;
+  animation: store-wide-sale-marquee 45s linear infinite;
+  display: flex;
+  height: 100%;
+  width: max-content;
+  @media (max-width: 1399px) {
+    animation-duration: 55s;
+  }
+  @media (max-width: 809px) {
+    animation-duration: 70s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transform: none;
+  }
+}
+
+.group {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: 48px;
+  padding-right: 48px;
+  @media (max-width: 809px) {
+    gap: 32px;
+    padding-right: 32px;
+  }
+}
+
+.message {
+  align-items: center;
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  gap: 48px;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  @media (max-width: 809px) {
+    font-size: 0.875rem;
+    gap: 32px;
+  }
+}
+
+.screenReaderOnly {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+@keyframes store-wide-sale-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}

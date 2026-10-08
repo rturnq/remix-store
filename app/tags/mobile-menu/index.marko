@@ -1,0 +1,51 @@
+import type { NavigationMenuData } from "../../data/storefront.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  menu: NavigationMenuData;
+}
+
+<details/menu class=styles.mobileMenu>
+  <summary aria-label="Navigation menu" class=styles.menuSummary>
+    <svg aria-hidden="true" viewBox="0 0 36 36">
+      <use href="#menu"/>
+    </svg>
+  </summary>
+  <nav aria-label="Mobile navigation" class=styles.mobileNav>
+    <ul>
+      <for|item| of=input.menu.items by="id">
+        <li><a href=item.url>${item.title}</a></li>
+      </for>
+    </ul>
+  </nav>
+</details>
+// Closes on a link, outside clicks and focus, and Escape (back to the toggle).
+<script>
+  const element = menu();
+  function close(restoreFocus = false) {
+    if (!element.open) return;
+    element.open = false;
+    if (restoreFocus) element.querySelector("summary")?.focus();
+  }
+  function onOutside(event: Event) {
+    if (!(event.target instanceof Node && element.contains(event.target))) {
+      close();
+    }
+  }
+  function onClick(event: MouseEvent) {
+    if (event.target instanceof Element && event.target.closest("a")) close();
+  }
+  function onKeyDown(event: KeyboardEvent) {
+    if (event.key === "Escape") close(true);
+  }
+  element.addEventListener("click", onClick);
+  document.addEventListener("pointerdown", onOutside);
+  document.addEventListener("focusin", onOutside);
+  document.addEventListener("keydown", onKeyDown);
+  $signal.onabort = () => {
+    element.removeEventListener("click", onClick);
+    document.removeEventListener("pointerdown", onOutside);
+    document.removeEventListener("focusin", onOutside);
+    document.removeEventListener("keydown", onKeyDown);
+  };
+</script>

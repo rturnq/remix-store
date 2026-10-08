@@ -1,0 +1,100 @@
+.pillLink {
+  align-items: center;
+  background: var(--color-white);
+  border-radius: 54px;
+  color: var(--color-black);
+  display: flex;
+  font-size: 1rem;
+  font-weight: 600;
+  gap: 8px;
+  height: 48px;
+  justify-content: center;
+  line-height: 1.4;
+  padding: 8px 20px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  width: max-content;
+  &:hover,
+  &:focus-visible {
+    color: var(--color-black);
+  }
+  & > svg {
+    flex: 0 0 auto;
+    height: 24px;
+    margin-left: -8px;
+    max-width: 0;
+    opacity: 0;
+    transform: scale(0.75);
+    transition:
+      margin 300ms var(--ease-snap),
+      max-width 300ms var(--ease-snap),
+      opacity 300ms ease,
+      transform 300ms var(--ease-snap);
+    width: 24px;
+  }
+  &:hover > svg,
+  &:focus-visible > svg {
+    margin-left: 0;
+    max-width: 24px;
+    opacity: 1;
+    transform: scale(1);
+  }
+  & [data-expanded] {
+    max-width: 0;
+    overflow: hidden;
+    padding-right: 0;
+    transition:
+      max-width 300ms ease-in-out,
+      padding-right 300ms ease-in-out;
+    white-space: nowrap;
+  }
+  &:hover [data-expanded],
+  &:focus-visible [data-expanded] {
+    max-width: 12ch;
+    padding-right: 4px;
+  }
+  &[data-expanded-text] {
+    padding-left: 20px;
+    padding-right: 16px;
+  }
+  &[data-icon-always-visible] > svg {
+    margin-left: 0;
+    max-width: 24px;
+    opacity: 1;
+    transform: scale(1);
+  }
+  @media (min-width: 810px) {
+    font-size: 1.25rem;
+    gap: 10px;
+    height: 64px;
+    padding: 16px 24px;
+    &[data-expanded-text] {
+      padding-left: 24px;
+      padding-right: 20px;
+    }
+    & > svg {
+      height: 32px;
+      margin-left: -10px;
+      width: 32px;
+    }
+    &:hover > svg,
+    &:focus-visible > svg,
+    &[data-icon-always-visible] > svg {
+      max-width: 32px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & > svg {
+      transition: none;
+    }
+    & [data-expanded] {
+      transition: none;
+    }
+  }
+}
+
+.label {
+  display: flex;
+  gap: 0.25em;
+}

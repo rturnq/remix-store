@@ -1,0 +1,48 @@
+import type { StoreWideSaleData } from "../../data/storefront.ts";
+import type { MarketLocale } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  locale: MarketLocale;
+  sale: StoreWideSaleData;
+}
+
+// Two identical groups animate by exactly one group width. Ten compact
+// messages per group is enough to cover the storefront's widest viewport.
+static const MARQUEE_REPETITIONS = 10;
+
+static function formatSaleEndDate(value: string, locale: MarketLocale): string {
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" })
+    .format(new Date(value))
+    .replace(" ", ".");
+}
+
+<const/{ sale }=input>
+<const/endDate=(
+  sale.endDateTime ? formatSaleEndDate(sale.endDateTime, input.locale) : null
+)>
+
+<define/MarqueeGroup>
+  <div data-marquee-group="true" class=styles.group>
+    <for|_| until=MARQUEE_REPETITIONS>
+      <span class=styles.message>
+        <span>${sale.title}</span><span>${sale.description}</span>
+        <if=endDate><span>Now thru ${endDate}</span></if>
+      </span>
+    </for>
+  </div>
+</define>
+
+<aside
+  aria-label="Store-wide sale"
+  data-store-wide-sale="true"
+  class=styles.marquee
+>
+  <p class=styles.screenReaderOnly>
+    ${sale.title}. ${sale.description}.${endDate ? ` Ends ${endDate}.` : ""}
+  </p>
+  <div aria-hidden="true" class=styles.track>
+    <MarqueeGroup/>
+    <MarqueeGroup/>
+  </div>
+</aside>

@@ -1,0 +1,33 @@
+/** Symbol IDs defined by the sprite sheet `<app-document>` inlines. */
+export type IconName =
+  | "bag"
+  | "cart"
+  | "check"
+  | "chevron-down"
+  | "chevron-left"
+  | "chevron-right"
+  | "chevron-up"
+  | "circle-check"
+  | "circle-minus"
+  | "circle-plus"
+  | "discord"
+  | "fast-forward"
+  | "github"
+  | "info"
+  | "mail"
+  | "menu"
+  | "remix-glyphs"
+  | "remix-logo"
+  | "x"
+  | "x-logo"
+  | "youtube";
+
+export interface Input extends Omit<Marko.SVG.SVG, "content"> {
+  name: IconName;
+}
+
+// A decorative icon from the inlined sprite sheet.
+<const/{ name, ...rest }=input>
+<svg aria-hidden="true" viewBox="0 0 24 24" ...rest>
+  <use href=`#${name}`/>
+</svg>

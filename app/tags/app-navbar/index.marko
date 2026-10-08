@@ -1,0 +1,43 @@
+import type { CartInitialData } from "../../data/cart.ts";
+import type {
+  NavigationMenuData,
+  StoreWideSaleData,
+} from "../../data/storefront.ts";
+import { marketPath, type ActiveMarket } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  cart: CartInitialData;
+  market: ActiveMarket;
+  menu: NavigationMenuData;
+  storeWideSale: StoreWideSaleData | null;
+}
+
+<const/sale=input.storeWideSale>
+<if=sale>
+  <store-wide-sale locale=input.market.locale sale=sale/>
+</if>
+<header class=styles.navbar>
+  <a
+    href=marketPath("/", input.market.pathPrefix)
+    aria-label="Remix Store home"
+    class=styles.homeLink
+  >
+    <remix-logo/>
+  </a>
+  <nav aria-label="Main navigation" class=styles.desktopNav>
+    <ul>
+      <for|item| of=input.menu.items by="id">
+        <li><a href=item.url>${item.title}</a></li>
+      </for>
+    </ul>
+  </nav>
+  <div class=styles.actions>
+    <mobile-menu menu=input.menu/>
+    <cart-shell
+      cart=input.cart
+      market=input.market
+      automaticDiscountLabel=sale?.title
+    />
+  </div>
+</header>

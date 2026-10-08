@@ -1,0 +1,61 @@
+import styles from "./style.module.css";
+
+export interface Input {
+  title: string;
+}
+
+// Coloured copies of the title spread apart as the page scrolls past it.
+static const LAYERS = [
+  { color: "pink", offset: "var(--title-spread)", z: 40 },
+  { color: "red", offset: "calc(var(--title-spread) * 2)", z: undefined },
+  { color: "yellow", offset: "calc(var(--title-spread) * -1)", z: 30 },
+  { color: "green", offset: "calc(var(--title-spread) * -2)", z: 20 },
+  { color: "blue", offset: "calc(var(--title-spread) * -3)", z: 10 },
+];
+
+<div/stage class=styles.titleStage>
+  <div class=styles.titleStack>
+    <h1>${input.title}</h1>
+    <for|layer| of=LAYERS>
+      <span
+        aria-hidden="true"
+        style=`color:var(--color-${layer.color}-brand);transform:translateY(${layer.offset})${layer.z ? `;z-index:${layer.z}` : ""}`
+      >
+        ${input.title}
+      </span>
+    </for>
+  </div>
+</div>
+<script>
+  const element = stage();
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let frame = 0;
+  function updateSpread() {
+    frame = 0;
+    if (motion.matches) {
+      element.style.setProperty("--title-spread", "0%");
+      return;
+    }
+    let progress = Math.min(
+      Math.max(-element.getBoundingClientRect().top / element.offsetHeight, 0),
+      1,
+    );
+    element.style.setProperty(
+      "--title-spread",
+      `${Math.round(progress * 80)}%`,
+    );
+  }
+  function requestUpdate() {
+    frame ||= requestAnimationFrame(updateSpread);
+  }
+  updateSpread();
+  window.addEventListener("scroll", requestUpdate, { passive: true });
+  window.addEventListener("resize", requestUpdate, { passive: true });
+  motion.addEventListener("change", requestUpdate);
+  $signal.onabort = () => {
+    window.removeEventListener("scroll", requestUpdate);
+    window.removeEventListener("resize", requestUpdate);
+    motion.removeEventListener("change", requestUpdate);
+    if (frame) cancelAnimationFrame(frame);
+  };
+</script>

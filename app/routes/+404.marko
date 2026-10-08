@@ -1,1 +1,15 @@
-<h1>Not found</h1>
+import { marketPath } from "../lib/market.ts";
+
+<app-document title="Not Found" appendSiteName=false noIndex>
+  <main>
+    <branded-state
+      kind="404"
+      heading="Page not found"
+      copy="The page you requested does not exist."
+      href=marketPath("/", $global.platform.market.pathPrefix)
+      icon="fast-forward"
+      linkLabel="Return home"
+      reverseIcon
+    />
+  </main>
+</app-document>

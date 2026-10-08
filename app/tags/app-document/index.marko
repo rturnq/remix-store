@@ -1,0 +1,155 @@
+import {
+  getShopifyScriptTags,
+  type ShopifyScriptTagDescriptors,
+} from "@shopify/hydrogen";
+
+import type { AnalyticsShop } from "../../data/storefront.ts";
+import { US_MARKET, type ActiveMarket } from "../../lib/market.ts";
+import { spritesSvg } from "../../lib/sprites.ts";
+import "../../styles/global.css";
+import interItalic from "../../styles/fonts/inter-italic-latin-var.woff2?url";
+import interRoman from "../../styles/fonts/inter-roman-latin-var.woff2?url";
+import jetBrainsMono from "../../styles/fonts/jet-brains-mono.woff2?url";
+import lexendZetta from "../../styles/fonts/lexend-zetta-black.woff2?url";
+
+export interface Input {
+  title: string;
+  /** Appends " | The Remix Store" to the title; defaults to true. */
+  appendSiteName?: boolean;
+  canonicalUrl?: string;
+  description?: string | null;
+  noIndex?: boolean;
+  socialImage?: string;
+  socialType?: "product" | "website";
+  content?: Marko.Body;
+}
+
+static const SITE_NAME = "The Remix Store";
+static const FONTS = [interRoman, interItalic, jetBrainsMono, lexendZetta];
+static const NO_SHOPIFY_SCRIPTS: ShopifyScriptTagDescriptors = {
+  links: [],
+  scripts: [],
+  tags: [],
+};
+
+static function getShopifyScripts(
+  analyticsShop: AnalyticsShop | null,
+  market: ActiveMarket,
+): ShopifyScriptTagDescriptors {
+  if (!analyticsShop?.shopId || !analyticsShop.myshopifyDomain) {
+    return NO_SHOPIFY_SCRIPTS;
+  }
+  return getShopifyScriptTags({
+    analytics: { channel: analyticsShop.channel },
+    consent: { mode: "default-banner" },
+    i18n: {
+      country: market.country,
+      language: market.language,
+      currency: analyticsShop.currency,
+      pathPrefix: market.pathPrefix,
+    },
+    shop: {
+      myshopifyDomain: analyticsShop.myshopifyDomain,
+      shopId: analyticsShop.shopId,
+      storefrontId: analyticsShop.storefrontId,
+    },
+  });
+}
+
+<const/market=$global.platform?.market ?? US_MARKET>
+<const/shell=$global.shell>
+<const/title=(
+  input.appendSiteName === false ? input.title : `${input.title} | ${SITE_NAME}`
+)>
+<const/description=(
+  input.description?.trim() || "Soft wear for engineers of all kinds"
+)>
+<const/socialImage=input.canonicalUrl
+  ? new URL(input.socialImage ?? "/social-main.jpg", input.canonicalUrl).href
+  : (input.socialImage ?? "/social-main.jpg")>
+<const/shopifyScripts=getShopifyScripts(shell?.analyticsShop ?? null, market)>
+
+<!doctype html>
+<html lang=market.locale data-market-prefix=market.pathPrefix || undefined>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content=description>
+    <meta
+      name="robots"
+      content=input.noIndex ? "noindex, nofollow" : "index, follow"
+    >
+    <meta name="theme-color" content="#000000">
+    <meta name="color-scheme" content="dark">
+    <meta property="og:type" content=input.socialType ?? "website">
+    <meta property="og:title" content=input.title>
+    <meta property="og:site_name" content=SITE_NAME>
+    <meta property="og:description" content=description>
+    <meta property="og:image" content=socialImage>
+    <if=input.canonicalUrl>
+      <meta property="og:url" content=input.canonicalUrl>
+    </if>
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content=input.title>
+    <meta name="twitter:description" content=description>
+    <meta name="twitter:image" content=socialImage>
+    <if=input.canonicalUrl>
+      <link rel="canonical" href=input.canonicalUrl>
+    </if>
+    <link
+      rel="preconnect"
+      href="https://cdn.shopify.com"
+      crossorigin="anonymous"
+    >
+    <link rel="dns-prefetch" href="https://cdn.shopify.com">
+    <link rel="preconnect" href="https://shop.app">
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="/remix-favicon-32.png"
+    >
+    <link rel="icon" type="image/svg+xml" href="/remix-favicon.svg">
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="/remix-apple-touch-icon.png"
+    >
+    <for|font| of=FONTS>
+      <link
+        rel="preload"
+        href=font
+        as="font"
+        type="font/woff2"
+        crossorigin="anonymous"
+      >
+    </for>
+    <for|{ attributes }| of=shopifyScripts.links>
+      <const/{ crossorigin, ...rest }=attributes>
+      <link ...rest crossorigin=crossorigin || undefined>
+    </for>
+    <title>${title}</title>
+  </head>
+  <body>
+    // Inline once so every `<use href="#name">` resolves without a request.
+    <div hidden>$!{spritesSvg}</div>
+    <if=shell>
+      <app-navbar
+        market=market
+        menu=shell.navigationMenu
+        storeWideSale=shell.storeWideSale
+        cart=shell.cart
+      />
+    </if>
+    <${input.content}/>
+    <if=shell>
+      <app-footer menu=shell.footerMenu pathPrefix=market.pathPrefix/>
+    </if>
+    <for|{ attributes, innerHTML }| of=shopifyScripts.scripts>
+      <const/{ crossorigin, ...rest }=attributes ?? {}>
+      <html-script ...rest crossorigin=crossorigin || undefined>
+        ${innerHTML};
+      </html-script>
+    </for>
+  </body>
+</html>

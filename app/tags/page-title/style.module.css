@@ -1,0 +1,63 @@
+.titleStage {
+  --title-spread: 0%;
+  align-items: center;
+  background: var(--color-black);
+  display: grid;
+  height: 200px;
+  overflow: hidden;
+  place-items: center;
+  position: relative;
+  @media (min-width: 810px) {
+    height: 360px;
+  }
+  @media (min-width: 1400px) {
+    height: 400px;
+  }
+  @media (min-width: 1640px) {
+    height: 480px;
+  }
+  @media (min-width: 2000px) {
+    height: 540px;
+  }
+}
+
+.titleStack {
+  font-family: var(--font-title);
+  font-size: 1.5rem;
+  font-weight: 900;
+  isolation: isolate;
+  letter-spacing: -0.23em;
+  line-height: 0.8;
+  position: relative;
+  text-align: center;
+  text-transform: uppercase;
+  user-select: none;
+  white-space: nowrap;
+  width: 100%;
+  & h1,
+  & span {
+    background: var(--color-black);
+    inset: 0;
+    margin: 0;
+    position: absolute;
+  }
+  & h1 {
+    color: var(--color-white);
+    font-size: inherit;
+    font-weight: inherit;
+    position: relative;
+    user-select: text;
+    z-index: 50;
+  }
+  @media (min-width: 810px) {
+    font-size: 3rem;
+  }
+  @media (min-width: 1400px) {
+    font-size: 4.5rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & span {
+      transform: none !important;
+    }
+  }
+}

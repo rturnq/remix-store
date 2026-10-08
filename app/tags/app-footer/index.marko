@@ -1,0 +1,191 @@
+import type { NavigationMenuData } from "../../data/storefront.ts";
+import { marketPath, type MarketPathPrefix } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  menu: NavigationMenuData;
+  pathPrefix: MarketPathPrefix;
+}
+
+static const GRADIENT_STRIP_COUNT = 33;
+static const GRADIENT_STAGGER_MS = 80;
+static const SOCIALS = [
+  {
+    href: "https://github.com/remix-run",
+    name: "github",
+    label: "GitHub",
+    viewBox: "0 0 24 24",
+  },
+  {
+    href: "https://x.com/remix_run",
+    name: "x-logo",
+    label: "X",
+    viewBox: "0 0 1200 1227",
+  },
+  {
+    href: "https://www.youtube.com/c/Remix-Run",
+    name: "youtube",
+    label: "YouTube",
+    viewBox: "0 0 24 24",
+  },
+  {
+    href: "https://rmx.as/discord",
+    name: "discord",
+    label: "Discord",
+    viewBox: "0 0 126.644 96",
+  },
+] as const;
+
+static function stripDelay(index: number): string {
+  let distanceFromCenter = Math.abs(
+    index - Math.floor(GRADIENT_STRIP_COUNT / 2),
+  );
+  return `animation-delay:${distanceFromCenter * GRADIENT_STAGGER_MS - 5000}ms`;
+}
+
+// The gradient animates only while the footer is in view.
+<let/visible=true>
+<footer/footer
+  data-storefront-footer="true"
+  data-visible=visible && "true"
+  class=styles.footer
+>
+  <div aria-hidden="true" class=styles.gradientLayer>
+    <div data-gradient-black="true"/>
+    <div data-gradient-top="true"/>
+    <div data-gradient-field="true">
+      <div data-gradient-strips="true">
+        <for|index| until=GRADIENT_STRIP_COUNT>
+          <span data-gradient-strip="true" style=stripDelay(index)/>
+        </for>
+        <div data-gradient-shade="true"/>
+      </div>
+    </div>
+    <div data-gradient-bottom="true"/>
+  </div>
+  <div data-footer-content="true" class=styles.footerContent>
+    <div class=styles.footerInner>
+      <div class=styles.catalog>
+        <a href=marketPath("/collections/all", input.pathPrefix)>
+          Remix Soft Wear Catalog V.1.4
+        </a>
+        <p>Designed in USA</p>
+      </div>
+
+      <div data-footer-brand="true" class=styles.brand>
+        <svg
+          aria-label="Remix Logo"
+          role="img"
+          viewBox="0 0 1280 126"
+          class=styles.brandLogo
+        >
+          <use href="#remix-logo"/>
+        </svg>
+
+        <div class=styles.brandGlyphGroup>
+          <div class=styles.runnerCircle>
+            <div data-runner-border="true"/>
+            <img
+              data-runner-static="true"
+              src="/brand/remix-runner.svg"
+              alt=""
+              aria-hidden="true"
+              width="326"
+              height="206"
+              loading="eager"
+            >
+            <img
+              data-runner-animated="true"
+              src="/brand/remix-runner-animated.svg"
+              alt=""
+              aria-hidden="true"
+              width="326"
+              height="206"
+              loading="eager"
+            >
+          </div>
+          <svg aria-hidden="true" viewBox="0 0 146 70" class=styles.glyphs>
+            <use href="#remix-glyphs"/>
+          </svg>
+        </div>
+      </div>
+
+      <div class=styles.footerLinks>
+        <div class=styles.statementColumn>
+          <p>Remix is for everyone</p>
+          <p>Remix is an engineering team</p>
+          <p>Remix builds tools for a better web</p>
+
+          <nav aria-label="Remix community" class=styles.socialNav>
+            <a
+              href="https://www.remix.run"
+              target="_blank"
+              rel="noopener noreferrer"
+              class=styles.remixLink
+            >
+              remix.run
+            </a>
+            <for|social| of=SOCIALS>
+              <a
+                href=social.href
+                aria-label=social.label
+                target="_blank"
+                rel="noopener noreferrer"
+                data-social-link="true"
+              >
+                <app-icon name=social.name viewBox=social.viewBox/>
+              </a>
+            </for>
+          </nav>
+        </div>
+
+        <nav aria-label="Store policies" class=styles.policyNav>
+          <for|item| of=input.menu.items by="id">
+            <const/external=/^https?:\/\//i.test(item.url)>
+            <a
+              href=item.url
+              target=external && "_blank"
+              rel=external && "noopener noreferrer"
+            >
+              ${item.title}
+            </a>
+          </for>
+        </nav>
+      </div>
+
+      <div class=styles.copyright>
+        <p>Docs and Examples licensed under MIT</p>
+        <p class=styles.copyrightLine>
+          <span aria-hidden="true">©</span>
+          <span>${new Date().getFullYear()} Shopify, Inc.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+<script>
+  const element = footer();
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let observer: IntersectionObserver | undefined;
+  function observe() {
+    observer?.disconnect();
+    observer = undefined;
+    if (motion.matches || !("IntersectionObserver" in window)) {
+      visible = true;
+      return;
+    }
+    observer = new IntersectionObserver(
+      ([entry]) => {
+        visible = Boolean(entry && entry.intersectionRatio >= 0.35);
+      },
+      { threshold: [0, 0.35, 1] },
+    );
+    observer.observe(element);
+  }
+  observe();
+  motion.addEventListener("change", observe);
+  $signal.onabort = () => {
+    observer?.disconnect();
+    motion.removeEventListener("change", observe);
+  };
+</script>

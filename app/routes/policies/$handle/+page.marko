@@ -1,0 +1,12 @@
+import { sanitizePolicyHtml } from "../../../lib/policy-html.ts";
+import styles from "./style.module.css";
+
+<const/{ canonicalUrl, policy }=$global.data>
+<app-document title=policy.title canonicalUrl=canonicalUrl>
+  <main>
+    <page-title title=policy.title/>
+    <article class=styles.policyContent>
+      $!{sanitizePolicyHtml(policy.body, $global.platform.market.pathPrefix)}
+    </article>
+  </main>
+</app-document>

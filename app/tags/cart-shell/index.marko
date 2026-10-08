@@ -1,0 +1,35 @@
+import type { CartInitialData } from "../../data/cart.ts";
+import { marketPath, type ActiveMarket } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  automaticDiscountLabel?: string;
+  cart: CartInitialData;
+  market: ActiveMarket;
+}
+
+<const/quantity=input.cart.cart?.totalQuantity ?? 0>
+<if=quantity === 0>
+  <a
+    href=marketPath("/collections/all", input.market.pathPrefix)
+    class=[styles.trigger, styles.shop]
+  >
+    <app-icon name="cart"/>
+    <span>Shop</span>
+    <span aria-hidden="true" data-expanded-label="true">All</span>
+  </a>
+</if>
+<else>
+  <a
+    href=marketPath("/cart", input.market.pathPrefix)
+    class=[styles.trigger, styles.cart]
+  >
+    <app-icon name="cart"/>
+    <span>${quantity}</span>
+    <span data-expanded-label="true">
+      Item${quantity === 1 ? "" : "s"}<span data-sr-only="true">
+        ${" "}in cart
+      </span>
+    </span>
+  </a>
+</else>

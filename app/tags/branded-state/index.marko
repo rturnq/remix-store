@@ -1,0 +1,30 @@
+import type { MatrixTextKind } from "../matrix-text/index.marko";
+import styles from "./style.module.css";
+
+export interface Input {
+  copy: string;
+  heading: string;
+  href: string;
+  icon: "cart" | "fast-forward";
+  kind: MatrixTextKind;
+  linkLabel: string;
+  reverseIcon?: boolean;
+}
+
+// A full-page message over glitching matrix art: 404, 500 and the empty cart.
+<section class=styles.state>
+  <matrix-text kind=input.kind/>
+  <div class=styles.content>
+    <div class=styles.copy>
+      <h1>${input.heading}</h1>
+      <p>${input.copy}</p>
+    </div>
+    <a href=input.href class=styles.spreadLink>
+      <app-icon
+        name=input.icon
+        style=input.reverseIcon && "transform:rotate(180deg)"
+      />
+      <span>${input.linkLabel}</span>
+    </a>
+  </div>
+</section>

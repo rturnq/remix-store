@@ -1,0 +1,70 @@
+.trigger {
+  align-items: center;
+  border-radius: 54px;
+  display: flex;
+  font-size: 0.875rem;
+  font-weight: 600;
+  gap: 6px;
+  height: 40px;
+  justify-content: center;
+  padding: 8px 12px;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  & svg {
+    fill: currentColor;
+    height: 20px;
+    width: 20px;
+  }
+  & [data-expanded-label] {
+    max-width: 0;
+    overflow: hidden;
+    transition: max-width 300ms ease-in-out;
+  }
+  &:hover [data-expanded-label],
+  &:focus-visible [data-expanded-label],
+  &[aria-expanded="true"] [data-expanded-label] {
+    max-width: 10ch;
+  }
+  & [data-sr-only] {
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+  @media (min-width: 810px) {
+    font-size: 1.25rem;
+    gap: 10px;
+    height: 64px;
+    padding: 16px 20px 16px 24px;
+    & svg {
+      height: 32px;
+      width: 32px;
+    }
+  }
+}
+
+.shop {
+  background: var(--color-white);
+  color: var(--color-black);
+  &:hover {
+    color: var(--color-black);
+  }
+  @media (max-width: 809px) {
+    & [data-expanded-label] {
+      display: none;
+    }
+  }
+}
+
+.cart {
+  background: var(--color-blue-brand);
+  border: 0;
+  color: var(--color-white);
+  &:hover {
+    color: var(--color-white);
+  }
+}

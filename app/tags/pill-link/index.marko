@@ -1,0 +1,41 @@
+import styles from "./style.module.css";
+
+export interface Input extends Omit<Marko.HTML.A, "content"> {
+  href: string;
+  content?: Marko.Body;
+  /** Text revealed beside the label on hover and focus. */
+  expandedText?: string;
+  icon?: "cart" | "fast-forward" | "mail";
+  iconAlwaysVisible?: boolean;
+  iconPosition?: "left" | "right";
+}
+
+<const/{
+  content,
+  expandedText,
+  icon,
+  iconAlwaysVisible,
+  iconPosition = "left",
+  class: className,
+  ...rest
+}=input>
+
+<a
+  ...rest
+  data-expanded-text=expandedText
+  data-icon-always-visible=iconAlwaysVisible && "true"
+  class=[styles.pillLink, className]
+>
+  <if=icon && iconPosition === "left">
+    <app-icon name=icon/>
+  </if>
+  <span class=styles.label>
+    <span>
+      <${content}/>
+    </span>
+    <if=expandedText><span data-expanded="true">${expandedText}</span></if>
+  </span>
+  <if=icon && iconPosition === "right">
+    <app-icon name=icon/>
+  </if>
+</a>

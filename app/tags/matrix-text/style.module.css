@@ -1,0 +1,26 @@
+.matrix {
+  aspect-ratio: 3 / 1;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  overflow: hidden;
+  position: relative;
+  text-align: center;
+  user-select: none;
+  width: 100%;
+  & [data-matrix-layer] {
+    background-clip: text;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    color: transparent;
+    image-rendering: pixelated;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    white-space: pre;
+  }
+  & [data-matrix-layer="blur"] {
+    filter: blur(24px);
+  }
+}

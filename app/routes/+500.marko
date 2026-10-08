@@ -1,1 +1,15 @@
-<h1>Something went wrong</h1>
+import { marketPath } from "../lib/market.ts";
+
+<app-document title="Something went wrong" appendSiteName=false noIndex>
+  <main>
+    <branded-state
+      kind="500"
+      heading="Storefront unavailable"
+      copy="The storefront could not load. Please try again."
+      href=marketPath("/", $global.platform.market.pathPrefix)
+      icon="fast-forward"
+      linkLabel="Return home"
+      reverseIcon
+    />
+  </main>
+</app-document>

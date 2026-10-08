@@ -1,0 +1,139 @@
+import styles from "./style.module.css";
+
+export type MatrixTextKind = keyof typeof MATRIX_SOURCES;
+
+export interface Input {
+  kind: MatrixTextKind;
+}
+
+static const MATRIX_SOURCES = {
+  "404": "/brand/matrix/error-404.png",
+  "500": "/brand/matrix/error-500.png",
+  empty: "/brand/matrix/empty.png",
+} as const;
+static const CHARACTER_WIDTH = 6;
+static const GLITCH_INTERVAL = 80;
+static const GLITCH_PERCENT = 0.08;
+
+static function brightnessCharacter(
+  red: number,
+  green: number,
+  blue: number,
+): string {
+  let average = (red + green + blue) / 3;
+  let value = Math.floor((255 - average) / (255 / 16));
+  if (value >= 12) return " ";
+  value = Math.max(0, Math.min(12, value) - 3);
+  return value.toString(16);
+}
+
+// Decorative: the image redrawn as hex digits, a few of them always changing.
+<let/ready=false>
+<let/imageDataUrl="">
+<let/originalText="">
+<let/displayText="">
+<let/scale=1>
+<const/layerStyle=`background-image:url(${imageDataUrl});transform:translate(-50%, -50%) scale(${scale})`>
+
+<div/stage
+  aria-hidden="true"
+  data-matrix-ready=ready && "true"
+  class=styles.matrix
+>
+  <if=ready>
+    <div data-matrix-layer="blur" style=layerStyle>${originalText}</div>
+    <div data-matrix-layer="text" style=layerStyle>${displayText}</div>
+  </if>
+</div>
+<script>
+  const element = stage();
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const image = new Image();
+  let text = "";
+  let activeIndices: number[] = [];
+  let interval = 0;
+
+  function updateScale(width: number) {
+    let next = element.clientWidth / (width * CHARACTER_WIDTH);
+    if (Number.isFinite(next) && next > 0) scale = next;
+  }
+  function stopGlitch() {
+    if (interval) window.clearInterval(interval);
+    interval = 0;
+    displayText = text;
+  }
+  function startGlitch() {
+    stopGlitch();
+    if (motion.matches || !text || activeIndices.length === 0) return;
+    interval = window.setInterval(() => {
+      let characters = text.split("");
+      let count = Math.max(
+        1,
+        Math.floor(activeIndices.length * GLITCH_PERCENT),
+      );
+      for (let i = 0; i < count; i++) {
+        let index =
+          activeIndices[Math.floor(Math.random() * activeIndices.length)];
+        if (index === undefined) continue;
+        let value = Number.parseInt(characters[index] ?? "", 16);
+        if (Number.isFinite(value)) {
+          characters[index] = ((value + 1) % 16).toString(16).toUpperCase();
+        }
+      }
+      displayText = characters.join("");
+    }, GLITCH_INTERVAL);
+  }
+
+  image.onload = () => {
+    if (!image.naturalWidth || !image.naturalHeight) return;
+    let canvas = document.createElement("canvas");
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    let context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return;
+
+    context.drawImage(image, 0, 0);
+    let pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let nextText = "";
+    let active: number[] = [];
+    for (let offset = 0; offset < pixels.length; offset += 4) {
+      let character = brightnessCharacter(
+        pixels[offset] ?? 0,
+        pixels[offset + 1] ?? 0,
+        pixels[offset + 2] ?? 0,
+      );
+      if (character !== " ") active.push(nextText.length);
+      nextText += character;
+      let pixelIndex = offset / 4;
+      if (
+        (pixelIndex + 1) % canvas.width === 0 &&
+        pixelIndex < canvas.width * canvas.height - 1
+      ) {
+        nextText += "\n";
+      }
+    }
+
+    text = nextText;
+    activeIndices = active;
+    imageDataUrl = canvas.toDataURL();
+    originalText = nextText;
+    displayText = nextText;
+    ready = true;
+    updateScale(canvas.width);
+    startGlitch();
+  };
+  // The art is decorative; a failed load keeps the empty stage.
+  image.src = MATRIX_SOURCES[input.kind];
+
+  const resizeObserver = new ResizeObserver(() => {
+    if (image.naturalWidth) updateScale(image.naturalWidth);
+  });
+  resizeObserver.observe(element);
+  motion.addEventListener("change", startGlitch);
+  $signal.onabort = () => {
+    image.onload = null;
+    stopGlitch();
+    resizeObserver.disconnect();
+    motion.removeEventListener("change", startGlitch);
+  };
+</script>
