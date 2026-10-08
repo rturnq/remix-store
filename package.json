@@ -14,7 +14,7 @@
     "deploy": "pnpm deploy:oxygen",
     "deploy:oxygen": "shopify hydrogen deploy --preview --build-command 'pnpm build:oxygen'",
     "lint": "oxlint . && oxfmt --check . && prettier --check \"app/**/*.marko\"",
-    "typecheck": "mtc && hydrogen gql check --fail-on-warn && node scripts/check-admin-graphql.mjs",
+    "typecheck": "node scripts/generate-route-types.mjs && mtc && hydrogen gql check --fail-on-warn && node scripts/check-admin-graphql.mjs",
     "format": "oxfmt . && prettier --write \"app/**/*.marko\"",
     "test": "vitest run",
     "test:e2e": "pnpm build && playwright test",
