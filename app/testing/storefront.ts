@@ -1,6 +1,7 @@
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll } from "vitest";
 
+import type { RateLimiter } from "../data/rate-limit.ts";
 import { MemoryStorefrontCache } from "../data/storefront-cache.ts";
 
 export const testEnv = {
@@ -25,7 +26,11 @@ afterAll(async () => {
  */
 export function createTestApp(
   fetch: typeof globalThis.fetch,
-  options: { buyerIp?: string; now?: () => Date } = {},
+  options: {
+    buyerIp?: string;
+    now?: () => Date;
+    subscriptionRateLimiter?: RateLimiter;
+  } = {},
 ) {
   let cache = new MemoryStorefrontCache();
   return {
@@ -46,6 +51,7 @@ export function createTestApp(
           cache,
           env: { ...testEnv, ["ADMIN" + "_ACCESS_TOKEN"]: "test-admin-token" },
           now: options.now,
+          subscriptionRateLimiter: options.subscriptionRateLimiter,
         });
         return withoutHydrationMarkers(response);
       } finally {
@@ -57,7 +63,7 @@ export function createTestApp(
 
 function isStorefrontApi(input: RequestInfo | URL): boolean {
   let url = input instanceof Request ? input.url : String(input);
-  return /\/api\/[^/]+\/graphql\.json$/.test(new URL(url).pathname);
+  return /^\/api\/[^/]+\/graphql\.json$/.test(new URL(url).pathname);
 }
 
 /**

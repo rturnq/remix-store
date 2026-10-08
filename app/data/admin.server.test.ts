@@ -1,6 +1,6 @@
-import * as assert from "remix/assert";
-import * as s from "remix/data-schema";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import * as v from "valibot";
+import { describe, it } from "vitest";
 
 import {
   ADMIN_API_VERSION,
@@ -222,15 +222,15 @@ describe("Shopify Admin customer client", () => {
   });
 });
 
-const AdminBodySchema = s.object({
-  query: s.string(),
-  variables: s.record(s.string(), s.any()),
+const AdminBodySchema = v.object({
+  query: v.string(),
+  variables: v.record(v.string(), v.any()),
 });
 
-type AdminBody = s.InferOutput<typeof AdminBodySchema>;
+type AdminBody = v.InferOutput<typeof AdminBodySchema>;
 
 function parseAdminBody(body: BodyInit | null | undefined): AdminBody {
-  return s.parse(AdminBodySchema, JSON.parse(String(body)));
+  return v.parse(AdminBodySchema, JSON.parse(String(body)));
 }
 
 function thrownAdminError(run: () => object): AdminApiError {

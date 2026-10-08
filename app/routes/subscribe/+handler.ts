@@ -65,7 +65,8 @@ export const POST = Run.POST(async (ctx, next) => {
     );
   }
   let [ipKey, emailKey] = await rateLimitKeys(buyerIp, parsed.email);
-  let limit = await subscriptionRateLimiter.consumeMany([ipKey, emailKey]);
+  let limiter = ctx.platform.subscriptionRateLimiter ?? subscriptionRateLimiter;
+  let limit = await limiter.consumeMany([ipKey, emailKey]);
   if (!limit.allowed) {
     headers.set("Retry-After", String(limit.retryAfterSeconds));
     return respond(
@@ -107,7 +108,7 @@ export const POST = Run.POST(async (ctx, next) => {
       storeDomain: env.ADMIN_STORE_DOMAIN ?? env.PUBLIC_STORE_DOMAIN,
     });
     await subscribeCustomer(admin, {
-      consentUpdatedAt: new Date().toISOString(),
+      consentUpdatedAt: (ctx.platform.now?.() ?? new Date()).toISOString(),
       email: parsed.email,
       tags,
     });

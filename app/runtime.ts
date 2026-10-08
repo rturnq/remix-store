@@ -1,5 +1,6 @@
 import type { CacheInstance } from "@shopify/hydrogen";
 
+import type { RateLimiter } from "./data/rate-limit.ts";
 import type { ActiveMarket } from "./lib/market.ts";
 
 export type Env = Record<string, string | undefined>;
@@ -14,6 +15,8 @@ export interface Runtime {
   waitUntil?(promise: Promise<unknown>): void;
   /** The current time; tests pin it to check seasonal pages. */
   now?(): Date;
+  /** Subscription abuse limits; defaults to a limiter in this process. */
+  subscriptionRateLimiter?: RateLimiter;
 }
 
 /** The request-scoped bindings every route reads from `ctx.platform`. */

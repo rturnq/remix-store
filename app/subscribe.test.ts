@@ -1,8 +1,8 @@
-import * as assert from "remix/assert";
-import * as s from "remix/data-schema";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import * as v from "valibot";
+import { describe, it, vi } from "vitest";
 
-import type { RateLimiter } from "../../data/rate-limit.ts";
+import type { RateLimiter } from "./data/rate-limit.ts";
 import {
   analyticsShopData,
   createStorefrontFetch,
@@ -10,7 +10,7 @@ import {
   navigationData,
   type StorefrontJsonObject,
   type StorefrontRequestBody,
-} from "../../testing/storefront.ts";
+} from "./testing/storefront.ts";
 
 const shellHandlers = {
   RemixAnalyticsShop: analyticsShopData,
@@ -28,11 +28,11 @@ describe("subscribe routes", () => {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("Cache-Control"), "private, no-store");
     assert.match(html, /<title>Subscribe \| The Remix Store<\/title>/);
-    assert.match(html, /action="\/subscribe" method="post"/);
-    assert.match(html, /type="email" name="email"/);
+    assert.match(html, /action="?\/subscribe"? method="?post"?/);
+    assert.match(html, /type="?email"? name="?email"?/);
     assert.match(html, /Enter your email below to subscribe\./);
-    assert.match(html, /type="hidden" name="consent" value="yes"/);
-    assert.doesNotMatch(html, /type="checkbox" name="consent"/);
+    assert.match(html, /type="?hidden"? name="?consent"? value="?yes"?/);
+    assert.doesNotMatch(html, /type="?checkbox"? name="?consent"?/);
   });
 
   it("rejects invalid email, consent, origin, and rate limits before Admin", async () => {
@@ -40,14 +40,12 @@ describe("subscribe routes", () => {
     let denied: RateLimiter = {
       consumeMany: async () => ({ allowed: false, retryAfterSeconds: 42 }),
     };
-    let app = createTestApp(createStorefrontFetch(shellHandlers), {
-      subscribe: {
-        adminFetch: async () => {
-          adminCalls += 1;
-          throw new Error("must not call Admin");
-        },
-        rateLimiter: denied,
+    let app = createSubscribeApp(createStorefrontFetch(shellHandlers), {
+      adminFetch: async () => {
+        adminCalls += 1;
+        throw new Error("must not call Admin");
       },
+      rateLimiter: denied,
     });
 
     let invalidEmail = await post(app, { consent: "yes", email: "not-email" });
@@ -74,25 +72,25 @@ describe("subscribe routes", () => {
     assert.equal(adminCalls, 0);
   });
 
-  it("returns a controlled 503 without Storefront or Admin when trusted IP is missing", async (t) => {
+  it("returns a controlled 503 without Storefront or Admin when trusted IP is missing", async () => {
     let storefrontCalls = 0;
     let adminCalls = 0;
     let logs: unknown[][] = [];
-    t.mock.method(console, "error", (...args: unknown[]) => logs.push(args));
-    let app = createTestApp(
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) =>
+      logs.push(args),
+    );
+    let app = createSubscribeApp(
       async () => {
         storefrontCalls += 1;
         throw new Error("must not call Storefront");
       },
       {
         buyerIp: undefined,
-        subscribe: {
-          adminFetch: async () => {
-            adminCalls += 1;
-            throw new Error("must not call Admin");
-          },
-          rateLimiter: allowAll(),
+        adminFetch: async () => {
+          adminCalls += 1;
+          throw new Error("must not call Admin");
         },
+        rateLimiter: allowAll(),
       },
     );
 
@@ -119,7 +117,7 @@ describe("subscribe routes", () => {
     let html = await htmlResponse.text();
     assert.equal(htmlResponse.status, 503);
     assert.match(htmlResponse.headers.get("Content-Type") ?? "", /text\/html/);
-    assert.match(html, /role="alert"/);
+    assert.match(html, /role="?alert"?/);
     assert.match(html, /Something went wrong/);
     assert.doesNotMatch(html, /member@example\.com/);
     assert.equal(storefrontCalls, 0);
@@ -128,14 +126,12 @@ describe("subscribe routes", () => {
 
   it("rejects oversized and unexpected form bodies before Admin", async () => {
     let adminCalls = 0;
-    let app = createTestApp(createStorefrontFetch(shellHandlers), {
-      subscribe: {
-        adminFetch: async () => {
-          adminCalls += 1;
-          throw new Error("must not call Admin");
-        },
-        rateLimiter: allowAll(),
+    let app = createSubscribeApp(createStorefrontFetch(shellHandlers), {
+      adminFetch: async () => {
+        adminCalls += 1;
+        throw new Error("must not call Admin");
       },
+      rateLimiter: allowAll(),
     });
     let oversized = await app.fetch(
       new Request("https://example.com/subscribe", {
@@ -198,8 +194,8 @@ describe("subscribe routes", () => {
   );
 
   it("renders validation errors as HTML without JavaScript", async () => {
-    let app = createTestApp(createStorefrontFetch(shellHandlers), {
-      subscribe: { rateLimiter: allowAll() },
+    let app = createSubscribeApp(createStorefrontFetch(shellHandlers), {
+      rateLimiter: allowAll(),
     });
     let request = formRequest({ email: "member@example.com" });
     request.headers.delete("Accept");
@@ -207,18 +203,16 @@ describe("subscribe routes", () => {
     let html = await response.text();
     assert.equal(response.status, 400);
     assert.match(response.headers.get("Content-Type") ?? "", /text\/html/);
-    assert.match(html, /role="alert"/);
+    assert.match(html, /role="?alert"?/);
     assert.match(html, /agree to receive emails/);
   });
 
   it("subscribes a newsletter customer and renders confirmation without JavaScript", async () => {
     let bodies: AdminBody[] = [];
-    let app = createTestApp(createStorefrontFetch(shellHandlers), {
-      subscribe: {
-        adminFetch: adminFetch(bodies),
-        now: () => new Date("2026-07-30T12:00:00.000Z"),
-        rateLimiter: allowAll(),
-      },
+    let app = createSubscribeApp(createStorefrontFetch(shellHandlers), {
+      adminFetch: adminFetch(bodies),
+      now: () => new Date("2026-07-30T12:00:00.000Z"),
+      rateLimiter: allowAll(),
     });
     let request = formRequest({
       consent: "yes",
@@ -252,11 +246,9 @@ describe("subscribe routes", () => {
         },
       }),
     });
-    let app = createTestApp(storefrontFetch, {
-      subscribe: {
-        adminFetch: adminFetch(bodies),
-        rateLimiter: allowAll(),
-      },
+    let app = createSubscribeApp(storefrontFetch, {
+      adminFetch: adminFetch(bodies),
+      rateLimiter: allowAll(),
     });
     let response = await post(app, {
       consent: "yes",
@@ -311,14 +303,12 @@ describe("subscribe routes", () => {
         ...shellHandlers,
         RemixBackInStockSubscription: () => ({ node: testCase.node }),
       });
-      let app = createTestApp(storefrontFetch, {
-        subscribe: {
-          adminFetch: async () => {
-            adminCalls += 1;
-            throw new Error("must not call Admin");
-          },
-          rateLimiter: allowAll(),
+      let app = createSubscribeApp(storefrontFetch, {
+        adminFetch: async () => {
+          adminCalls += 1;
+          throw new Error("must not call Admin");
         },
+        rateLimiter: allowAll(),
       });
       let response = await post(app, {
         consent: "yes",
@@ -348,8 +338,9 @@ describe("subscribe routes", () => {
         },
       }),
     });
-    let app = createTestApp(storefrontFetch, {
-      subscribe: { adminFetch: adminFetch([]), rateLimiter: allowAll() },
+    let app = createSubscribeApp(storefrontFetch, {
+      adminFetch: adminFetch([]),
+      rateLimiter: allowAll(),
     });
     let request = formRequest({
       consent: "yes",
@@ -366,7 +357,7 @@ describe("subscribe routes", () => {
 
   it("keeps localized no-JavaScript back-in-stock redirects in Canada", async () => {
     let variables: StorefrontRequestBody["variables"] | undefined;
-    let app = createTestApp(
+    let app = createSubscribeApp(
       createStorefrontFetch({
         ...shellHandlers,
         RemixBackInStockSubscription(body) {
@@ -384,9 +375,7 @@ describe("subscribe routes", () => {
           };
         },
       }),
-      {
-        subscribe: { adminFetch: adminFetch([]), rateLimiter: allowAll() },
-      },
+      { adminFetch: adminFetch([]), rateLimiter: allowAll() },
     );
     let request = formRequest({
       consent: "yes",
@@ -407,19 +396,19 @@ describe("subscribe routes", () => {
     assert.equal(variables?.language, "EN");
   });
 
-  it("returns a generic Admin failure without logging the email or response", async (t) => {
+  it("returns a generic Admin failure without logging the email or response", async () => {
     let logs: unknown[][] = [];
-    t.mock.method(console, "error", (...args: unknown[]) => logs.push(args));
-    let app = createTestApp(createStorefrontFetch(shellHandlers), {
-      subscribe: {
-        adminFetch: async () =>
-          new Response(
-            JSON.stringify({
-              errors: [{ message: "customer member@example.com" }],
-            }),
-          ),
-        rateLimiter: allowAll(),
-      },
+    vi.spyOn(console, "error").mockImplementation((...args: unknown[]) =>
+      logs.push(args),
+    );
+    let app = createSubscribeApp(createStorefrontFetch(shellHandlers), {
+      adminFetch: async () =>
+        new Response(
+          JSON.stringify({
+            errors: [{ message: "customer member@example.com" }],
+          }),
+        ),
+      rateLimiter: allowAll(),
     });
 
     let response = await post(app, {
@@ -485,16 +474,16 @@ function allowAll(): RateLimiter {
   };
 }
 
-const AdminBodySchema = s.object({
-  query: s.string(),
-  variables: s.record(s.string(), s.any()),
+const AdminBodySchema = v.object({
+  query: v.string(),
+  variables: v.record(v.string(), v.any()),
 });
 
-const AdminInputTagsSchema = s.object({
-  input: s.object({ tags: s.array(s.string()) }),
+const AdminInputTagsSchema = v.object({
+  input: v.object({ tags: v.array(v.string()) }),
 });
 
-type AdminBody = s.InferOutput<typeof AdminBodySchema>;
+type AdminBody = v.InferOutput<typeof AdminBodySchema>;
 
 function adminFetch(bodies: AdminBody[]): typeof globalThis.fetch {
   return async (_input, init) => {
@@ -516,9 +505,29 @@ function adminResponse(data: StorefrontJsonObject) {
 }
 
 function parseAdminBody(body: BodyInit | null | undefined): AdminBody {
-  return s.parse(AdminBodySchema, JSON.parse(String(body)));
+  return v.parse(AdminBodySchema, JSON.parse(String(body)));
 }
 
 function adminInputTags(body: AdminBody): string[] {
-  return s.parse(AdminInputTagsSchema, body.variables).input.tags;
+  return v.parse(AdminInputTagsSchema, body.variables).input.tags;
+}
+
+function createSubscribeApp(
+  storefrontFetch: typeof globalThis.fetch,
+  options: {
+    adminFetch?: typeof globalThis.fetch;
+    buyerIp?: string;
+    now?: () => Date;
+    rateLimiter?: RateLimiter;
+  } = {},
+) {
+  // Admin API requests leave through the global fetch the harness defers to.
+  if (options.adminFetch) {
+    vi.spyOn(globalThis, "fetch").mockImplementation(options.adminFetch);
+  }
+  return createTestApp(storefrontFetch, {
+    ...("buyerIp" in options ? { buyerIp: options.buyerIp } : {}),
+    now: options.now,
+    subscriptionRateLimiter: options.rateLimiter,
+  });
 }
