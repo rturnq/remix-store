@@ -1,0 +1,63 @@
+import type {
+  HomeLookbookEntryData,
+  ProductMoney,
+} from "../../data/storefront.ts";
+import { focalPointPosition } from "../../lib/image-utils.ts";
+import { marketPath, type ActiveMarket } from "../../lib/market.ts";
+import pill from "../pill-link/style.module.css";
+import styles from "./style.module.css";
+
+export interface Input {
+  entry: HomeLookbookEntryData;
+  market: ActiveMarket;
+}
+
+static function lookbookPrice(
+  price: ProductMoney,
+  locale: ActiveMarket["locale"],
+): string {
+  let amount = Number(price.amount);
+  if (!Number.isFinite(amount)) return "Price unavailable";
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: price.currencyCode,
+    minimumFractionDigits: Number.isInteger(amount) ? 0 : 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+<const/{ entry }=input>
+<const/{ product }=entry>
+<section aria-label=product?.title ?? "Coming soon" class=styles.lookbook>
+  <div aria-hidden="true" class=styles.lookbookImage>
+    <shopify-image
+      image=entry.image
+      alt=""
+      sizes="100vw"
+      objectPosition=focalPointPosition(entry.focalPoint ?? undefined)
+    />
+  </div>
+  <if=product>
+    <const/price=lookbookPrice(product.price, input.market.locale)>
+    <a
+      href=marketPath(
+        `/products/${encodeURIComponent(product.handle)}`,
+        input.market.pathPrefix,
+      )
+      aria-label=`${product.title}, ${price}`
+      class=[pill.pillLink, styles.lookbookLink]
+    >
+      <span aria-hidden="true" data-lookbook-hit-area="true"/>
+      <app-icon name="fast-forward"/>
+      <span>${product.title}</span>
+      <span aria-hidden="true" class=styles.middleDot>·</span>
+      <span>${price}</span>
+    </a>
+  </if>
+  <else>
+    <span aria-label="Coming soon" class=[pill.pillLink, styles.lookbookLink]>
+      <app-icon name="mail"/>
+      <span>Coming Soon</span>
+    </span>
+  </else>
+</section>

@@ -1,0 +1,140 @@
+import type { ImageData } from "../../data/storefront.ts";
+import pill from "../pill-link/style.module.css";
+import styles from "./style.module.css";
+
+export interface Input {
+  assetImages: ImageData[];
+  collectionHref: string;
+  cta: string;
+  heading: string;
+}
+
+static function preloadImage(
+  image: ImageData,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let preload = new Image();
+    function onAbort() {
+      reject(new DOMException("Image preload aborted", "AbortError"));
+      // Removing src asks the browser to abort the image request instead of
+      // continuing the download after this component leaves the page.
+      preload.removeAttribute("src");
+    }
+    if (signal.aborted) return onAbort();
+    preload.onload = async () => {
+      signal.removeEventListener("abort", onAbort);
+      try {
+        await preload.decode();
+      } catch {
+        // A completed load is still usable when decode() is unavailable or rejects.
+      }
+      resolve();
+    };
+    preload.onerror = () => {
+      signal.removeEventListener("abort", onAbort);
+      reject(new Error(`Unable to load ${image.url}`));
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    preload.src = image.url;
+  });
+}
+
+// A 200vh sticky stage: scrolling scrubs through the hero's frames once they
+// have all loaded. Only the first frame renders on the server.
+<id/titleId>
+<let/allLoaded=false>
+<const/frames=allLoaded ? input.assetImages : input.assetImages.slice(0, 1)>
+
+<section/hero aria-labelledby=titleId data-home-hero="true" class=styles.hero>
+  <div class=styles.heroStage>
+    <div aria-hidden="true" class=styles.heroFrames>
+      <for|image, index| of=frames by=(image) => image.id ?? image.url>
+        <img
+          data-home-hero-frame=index
+          src=image.url
+          alt=""
+          width=image.width ?? undefined
+          height=image.height ?? undefined
+          loading=index === 0 ? "eager" : undefined
+          fetchpriority=index === 0 ? "high" : undefined
+          decoding=index === 0 ? "sync" : "async"
+          style=`visibility:${index === 0 ? "visible" : "hidden"}`
+        >
+      </for>
+    </div>
+    <div class=styles.heroContent>
+      <h1 id=titleId>${input.heading}</h1>
+      <a href=input.collectionHref class=[pill.pillLink, styles.heroLink]>
+        <span aria-hidden="true" data-link-hit-area="true"/>
+        <app-icon name="fast-forward"/>
+        <span>${input.cta}</span>
+      </a>
+    </div>
+  </div>
+</section>
+<script>
+  const section = hero();
+  const images = input.assetImages;
+  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let loading = false;
+  let ready = false;
+  let frame = 0;
+
+  function showFrame(index: number) {
+    section
+      .querySelectorAll<HTMLImageElement>("[data-home-hero-frame]")
+      .forEach((element, elementIndex) => {
+        element.style.visibility =
+          elementIndex === index ? "visible" : "hidden";
+      });
+  }
+  function updateFrame() {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(() => {
+      if (!ready || images.length < 2) return;
+      let top = window.scrollY + section.getBoundingClientRect().top;
+      let progress = Math.max(
+        0,
+        Math.min(1, (window.scrollY - top) / section.offsetHeight),
+      );
+      showFrame(
+        Math.min(Math.floor(progress * 1.5 * images.length), images.length - 1),
+      );
+    });
+  }
+  async function preloadFrames() {
+    if (motion.matches || loading || images.length < 2) return;
+    loading = true;
+    try {
+      // The first frame was rendered on the server.
+      await Promise.all(
+        images.slice(1).map((image) => preloadImage(image, $signal)),
+      );
+      ready = true;
+      allLoaded = true;
+      updateFrame();
+    } catch {
+      if (!$signal.aborted) showFrame(0);
+    }
+  }
+  function onMotionChange() {
+    if (motion.matches) {
+      showFrame(0);
+    } else {
+      preloadFrames();
+      updateFrame();
+    }
+  }
+
+  window.addEventListener("scroll", updateFrame, { passive: true });
+  window.addEventListener("resize", updateFrame);
+  motion.addEventListener("change", onMotionChange);
+  $signal.onabort = () => {
+    cancelAnimationFrame(frame);
+    window.removeEventListener("scroll", updateFrame);
+    window.removeEventListener("resize", updateFrame);
+    motion.removeEventListener("change", onMotionChange);
+  };
+  preloadFrames();
+</script>

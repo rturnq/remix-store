@@ -1,0 +1,49 @@
+.lookbook {
+  background: var(--color-black);
+  height: 640px;
+  position: relative;
+  @media (min-width: 810px) {
+    height: 800px;
+  }
+}
+
+.lookbookImage {
+  inset: 0;
+  position: absolute;
+  & img {
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+  }
+}
+
+.lookbookLink {
+  bottom: 20px;
+  left: 20px;
+  max-width: calc(100vw - 40px);
+  position: absolute;
+  white-space: nowrap;
+  z-index: 1;
+  & [data-lookbook-hit-area="true"] {
+    bottom: -20px;
+    height: 640px;
+    left: -20px;
+    position: absolute;
+    width: 100vw;
+  }
+  @media (min-width: 810px) {
+    bottom: 36px;
+    left: 36px;
+    max-width: calc(100vw - 72px);
+    & [data-lookbook-hit-area="true"] {
+      bottom: -36px;
+      height: 800px;
+      left: -36px;
+    }
+  }
+}
+
+.middleDot {
+  font-size: 1.75rem;
+  line-height: 0;
+}

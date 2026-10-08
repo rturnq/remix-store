@@ -1,3 +1,64 @@
-<app-document title="Home" appendSiteName=false>
-  <main/>
+import { marketPath } from "../lib/market.ts";
+import styles from "./home.module.css";
+
+<const/{ canonicalUrl, home, showSeasonalSnow }=$global.data>
+<const/{ market }=$global.platform>
+<const/[firstEntry, ...remainingEntries]=home.lookbookEntries>
+
+<app-document
+  canonicalUrl=canonicalUrl
+  title="Home"
+  description=home.shop.description
+>
+  <if=showSeasonalSnow>
+    <snow-field/>
+  </if>
+  <main>
+    <home-hero
+      assetImages=home.hero?.assetImages ?? []
+      collectionHref=marketPath(
+        `/collections/${encodeURIComponent(home.hero?.collectionHandle ?? "all")}`,
+        market.pathPrefix,
+      )
+      heading="Remix 3 Racing Team Collection"
+      cta="Shop New Items"
+    />
+    <div class=styles.editorial>
+      <if=firstEntry>
+        <lookbook-entry entry=firstEntry market=market/>
+      </if>
+      <section aria-label="Remix runner" class=styles.runnerPanel>
+        <div class=styles.runnerImageContainer>
+          <img
+            src="/brand/remix-runner.svg"
+            width="326"
+            height="206"
+            alt="Silhouette of a runner made of white circles"
+            class=styles.runnerStatic
+          >
+          <img
+            src="/brand/remix-runner-animated.svg"
+            width="326"
+            height="206"
+            alt=""
+            aria-hidden="true"
+            class=styles.runnerAnimated
+          >
+        </div>
+      </section>
+      <for|entry| of=remainingEntries by="id">
+        <lookbook-entry entry=entry market=market/>
+      </for>
+      <if=home.products.length>
+        <div data-home-catalog="true" class=styles.homeCatalog>
+          <product-grid
+            collectionHandle="all"
+            pathPrefix=market.pathPrefix
+            products=home.products
+            pageInfo=home.pageInfo
+          />
+        </div>
+      </if>
+    </div>
+  </main>
 </app-document>

@@ -1,0 +1,40 @@
+import type { ImageData } from "../../data/storefront.ts";
+import {
+  isShopifyImageSource,
+  responsiveImageWidths,
+  shopifyImageUrl,
+} from "../../lib/shopify-image.ts";
+
+export interface Input {
+  alt: string;
+  image: ImageData;
+  loading?: "eager" | "lazy";
+  objectPosition?: string;
+  sizes: string;
+}
+
+// Shopify CDN images get a srcset of widths up to the source's own.
+<const/{ image }=input>
+<const/widths=responsiveImageWidths(image.width)>
+<const/responsive=isShopifyImageSource(image.url)>
+<img
+  src=(
+    responsive
+      ? shopifyImageUrl(image.url, widths.at(-1) ?? image.width ?? 960)
+      : image.url
+  )
+  srcset=(
+    responsive
+      ? widths
+          .map((width) => `${shopifyImageUrl(image.url, width)} ${width}w`)
+          .join(", ")
+      : undefined
+  )
+  sizes=responsive ? input.sizes : undefined
+  width=image.width ?? undefined
+  height=image.height ?? undefined
+  alt=input.alt
+  loading=input.loading ?? "lazy"
+  decoding="async"
+  style=input.objectPosition && `object-position:${input.objectPosition}`
+>

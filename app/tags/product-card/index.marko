@@ -1,0 +1,47 @@
+import type { ProductCardData } from "../../data/storefront.ts";
+import { marketPath, type MarketPathPrefix } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  pathPrefix: MarketPathPrefix;
+  product: ProductCardData;
+}
+
+static const IMAGE_SIZES =
+  "(min-width: 2700px) 14vw, (min-width: 2000px) 17.5vw, (min-width: 1400px) 23.33vw, (min-width: 810px) 35vw, 70vw";
+
+<const/{ product }=input>
+<const/[firstImage, secondImage]=product.images>
+<article class=styles.card>
+  <a
+    href=marketPath(
+      `/products/${encodeURIComponent(product.handle)}`,
+      input.pathPrefix,
+    )
+    class=styles.link
+  >
+    <div aria-hidden=!firstImage && "true" class=styles.imageRegion>
+      <if=firstImage>
+        <shopify-image image=firstImage alt="" sizes=IMAGE_SIZES/>
+      </if>
+      <else>
+        <div class=styles.placeholder/>
+      </else>
+      <if=secondImage>
+        <shopify-image image=secondImage alt="" sizes=IMAGE_SIZES/>
+      </if>
+    </div>
+    <div class=styles.text>
+      <h3>${product.title}</h3>
+      <if=product.isOnSale && product.compareAtPrice>
+        <p class=styles.salePrice>
+          <s>${product.compareAtPrice}</s>
+          <span>${product.price}</span>
+        </p>
+      </if>
+      <else>
+        <p class=styles.price>${product.price}</p>
+      </else>
+    </div>
+  </a>
+</article>

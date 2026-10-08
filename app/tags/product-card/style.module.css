@@ -1,0 +1,143 @@
+.card {
+  min-width: 0;
+  position: relative;
+}
+
+.link {
+  align-items: center;
+  color: var(--color-white);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  outline-offset: -4px;
+  text-decoration: none;
+  &:hover {
+    color: var(--color-white);
+  }
+  & > div:first-child > img + img {
+    opacity: 0;
+  }
+  &:hover > div:first-child {
+    animation: product-image-bounce 520ms var(--ease-snap);
+  }
+  &:hover > div:first-child > img:first-child:not(:last-child) {
+    opacity: 0;
+  }
+  &:hover > div:first-child > img:last-child:not(:first-child) {
+    opacity: 1;
+  }
+}
+
+.imageRegion {
+  align-items: center;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  width: 70%;
+  & img {
+    height: auto;
+    max-height: 90%;
+    object-fit: cover;
+    position: relative;
+    width: 100%;
+  }
+  & img + img {
+    inset: 5% 0;
+    height: 90%;
+    position: absolute;
+    width: 100%;
+  }
+}
+
+.placeholder {
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.025) 55%,
+    transparent 75%
+  );
+  border-radius: 50%;
+  width: 90%;
+}
+
+.text {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  justify-content: center;
+  min-height: 64px;
+  padding: 0 12px;
+  text-align: center;
+  & h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    margin: 0;
+  }
+}
+
+.skeletonLayout {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeletonImage {
+  animation: product-skeleton-pulse 1800ms ease-in-out infinite alternate;
+  aspect-ratio: 1 / 1;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.12),
+    rgba(0, 0, 0, 0.1) 70%
+  );
+  border-radius: 50%;
+  filter: blur(16px);
+  width: 90%;
+}
+
+.skeletonText {
+  height: 64px;
+}
+
+.price {
+  line-height: 1;
+  margin: 0;
+}
+
+.salePrice {
+  display: flex;
+  gap: 6px;
+  line-height: 1;
+  margin: 0;
+  & span {
+    color: var(--color-red-brand);
+    font-weight: 700;
+  }
+}
+
+@keyframes product-image-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-8px) scale(1.018);
+  }
+  72% {
+    transform: translateY(2px) scale(0.995);
+  }
+}
+
+@keyframes product-skeleton-pulse {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.96);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+}

@@ -1,0 +1,105 @@
+import type {
+  ProductCardData,
+  ProductPageInfoData,
+} from "../../data/storefront.ts";
+import { marketPath, type MarketPathPrefix } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+export interface Input {
+  collectionHandle: string;
+  pageInfo: ProductPageInfoData;
+  pathPrefix: MarketPathPrefix;
+  products: ProductCardData[];
+}
+
+static const LOADING_PRODUCT_COUNT = 8;
+
+static type ProductsPage = {
+  products: ProductCardData[];
+  nextCursor: string | null;
+};
+
+<const/collectionPath=marketPath(
+  `/collections/${encodeURIComponent(input.collectionHandle)}`,
+  input.pathPrefix,
+)>
+<let/loaded=[] as ProductCardData[]>
+<let/cursor=input.pageInfo.hasNextPage ? input.pageInfo.endCursor : null>
+<let/status="idle" as "idle" | "loading" | "error">
+<let/focusId=null as string | null>
+
+// The first page renders on the server. "Load more" is a GET form for the
+// collection at the next cursor; enhanced, it appends the next page in place.
+<section aria-label="Collection products">
+  <ul/grid class=styles.productGrid>
+    <for|product| of=input.products by="id">
+      <li>
+        <product-card product=product pathPrefix=input.pathPrefix/>
+      </li>
+    </for>
+    <for|product| of=loaded by="id">
+      <li data-product-id=product.id>
+        <product-card product=product pathPrefix=input.pathPrefix/>
+      </li>
+    </for>
+    <if=status === "loading">
+      <for|index| until=LOADING_PRODUCT_COUNT>
+        <li>
+          <product-card-skeleton/>
+        </li>
+      </for>
+    </if>
+    <if=cursor>
+      <li class=styles.control>
+        <form
+          action=collectionPath
+          method="get"
+          async onSubmit(event) {
+            event.preventDefault();
+            if (status === "loading") return;
+            status = "loading";
+            try {
+              let response = await fetch(
+                `${collectionPath}/products?${new URLSearchParams({ cursor: cursor! })}`,
+                { headers: { Accept: "application/json" } },
+              );
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              let page = (await response.json()) as ProductsPage;
+              loaded = [...loaded, ...page.products];
+              cursor = page.nextCursor;
+              focusId = page.products[0]?.id ?? null;
+              status = "idle";
+            } catch (error) {
+              console.error("[collection] Unable to load more products", error);
+              status = "error";
+            }
+          }
+        >
+          <input type="hidden" name="cursor" value=cursor>
+          <button
+            type="submit"
+            disabled=status === "loading"
+            class=styles.button
+          >
+            ${status === "loading" ? "Loading…" : "Load more"}
+          </button>
+          <if=status === "error">
+            <p role="alert" class=styles.error>
+              Products could not be loaded. Please try again.
+            </p>
+          </if>
+        </form>
+      </li>
+    </if>
+  </ul>
+</section>
+// Continue from the first new product without moving the viewport.
+<script>
+  if (focusId) {
+    grid()
+      .querySelector<HTMLElement>(
+        `[data-product-id="${CSS.escape(focusId)}"] a`,
+      )
+      ?.focus({ preventScroll: true });
+  }
+</script>
