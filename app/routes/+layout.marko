@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang=$global.platform.market.locale>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>The Remix Store</title>
+  </head>
+  <body>
+    <nav>
+      <for|item| of=$global.shell.navigationMenu.items by="id">
+        <a href=item.url>${item.title}</a>
+      </for>
+    </nav>
+    <${input.content}/>
+  </body>
+</html>

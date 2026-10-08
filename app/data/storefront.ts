@@ -10,14 +10,13 @@ import {
   type StorefrontApi,
   type StorefrontClient,
 } from "@shopify/hydrogen";
-import type { SerializableObject } from "remix/component";
 
 import { getFocalPoint, type FocalPoint } from "../lib/image-utils.ts";
 import {
   localizeInternalUrl,
   type MarketLocale,
   type MarketPathPrefix,
-} from "../lib/public/market.ts";
+} from "../lib/market.ts";
 
 export type AppStorefrontClient = StorefrontClient<{
   cache?: CachingStrategy;
@@ -33,29 +32,29 @@ export type StorefrontQueryResult<T> =
   | { ok: true; data: T }
   | { ok: false; message: string; errors: StorefrontQueryFailureCause };
 
-export type NavigationMenuItemData = SerializableObject & {
+export type NavigationMenuItemData = {
   id: string;
   title: string;
   url: string;
 };
 
-export type NavigationMenuData = SerializableObject & {
+export type NavigationMenuData = {
   items: NavigationMenuItemData[];
 };
 
-export type StoreWideSaleData = SerializableObject & {
+export type StoreWideSaleData = {
   description: string;
   endDateTime?: string;
   title: string;
 };
 
-export type ShellMenusData = SerializableObject & {
+export type ShellMenusData = {
   footerMenu: NavigationMenuData;
   navigationMenu: NavigationMenuData;
   storeWideSale: StoreWideSaleData | null;
 };
 
-export type ImageData = SerializableObject & {
+export type ImageData = {
   altText?: string | null;
   height?: number | null;
   id?: string | null;
@@ -63,12 +62,12 @@ export type ImageData = SerializableObject & {
   width?: number | null;
 };
 
-export type ProductMoney = SerializableObject & {
+export type ProductMoney = {
   amount: string;
   currencyCode: string;
 };
 
-export type ProductCardData = SerializableObject & {
+export type ProductCardData = {
   compareAtPrice?: string | null;
   handle: string;
   id: string;
@@ -78,41 +77,39 @@ export type ProductCardData = SerializableObject & {
   title: string;
 };
 
-export type ProductPageInfoData = SerializableObject & {
+export type ProductPageInfoData = {
   endCursor?: string | null;
   hasNextPage: boolean;
 };
 
-export type CollectionData = SerializableObject & {
+export type CollectionData = {
   description: string;
   handle: string;
   id: string;
-  products: SerializableObject & {
+  products: {
     nodes: ProductCardData[];
     pageInfo: ProductPageInfoData;
   };
   title: string;
 };
 
-export type HomeHeroData = SerializableObject & {
+export type HomeHeroData = {
   assetImages: ImageData[];
   collectionHandle: string;
 };
 
-export type HomeLookbookEntryData = SerializableObject & {
+export type HomeLookbookEntryData = {
   id: string;
   image: ImageData;
-  focalPoint?: (SerializableObject & FocalPoint) | null;
-  product?:
-    | (SerializableObject & {
-        handle: string;
-        price: ProductMoney;
-        title: string;
-      })
-    | null;
+  focalPoint?: FocalPoint | null;
+  product?: {
+    handle: string;
+    price: ProductMoney;
+    title: string;
+  } | null;
 };
 
-export type HomeData = SerializableObject & {
+export type HomeData = {
   hero: HomeHeroData | null;
   lookbookEntries: HomeLookbookEntryData[];
   pageInfo: ProductPageInfoData;
@@ -560,7 +557,7 @@ export async function queryShop(
   }
 }
 
-export type AnalyticsShop = SerializableObject & {
+export type AnalyticsShop = {
   channel: "hydrogen";
   currency: string;
   myshopifyDomain: string;
@@ -1160,7 +1157,7 @@ function storefrontLocale(storefront: AppStorefrontClient): MarketLocale {
 
 function toSerializableFocalPoint(
   point: FocalPoint | undefined,
-): (SerializableObject & FocalPoint) | null {
+): FocalPoint | null {
   return point ? { x: point.x, y: point.y } : null;
 }
 

@@ -4,6 +4,8 @@ import {
   gql,
   type StorefrontClient,
 } from "@shopify/hydrogen";
+// Lets type checking name the GraphQL document types in `cartHandlers`.
+import type {} from "gql.tada";
 
 import type { CartInitialData } from "./cart.ts";
 

@@ -5,9 +5,7 @@ import {
   handleShopifyRoutes,
   type CacheInstance,
 } from "@shopify/hydrogen";
-import { createMultiMatcher } from "remix/route-pattern/match";
-import { createContextKey, type Middleware } from "remix/router";
-import { redirect } from "remix/response/redirect";
+import type { Context, NextFunction, NextResponse } from "@marko/run";
 
 import { cartHandlers, getCartData } from "../data/cart.server.ts";
 import type { CartInitialData } from "../data/cart.ts";
@@ -25,14 +23,28 @@ import {
   type NavigationMenuData,
   type StoreWideSaleData,
 } from "../data/storefront.ts";
-import {
-  localizeInternalUrl,
-  type ActiveMarket,
-} from "../lib/public/market.ts";
-import { routeTemplates } from "../lib/public/route-templates.ts";
-import { routes } from "../routes.ts";
-import { getRuntime, type Env } from "../runtime.ts";
-import { MarketConfig } from "./market.tsx";
+import { localizeInternalUrl, type ActiveMarket } from "../lib/market.ts";
+import { routeTemplates } from "../lib/route-templates.ts";
+import type { Env } from "../runtime.ts";
+
+/** The store-wide data every document renders around its page. */
+export interface ShellData {
+  navigationMenu: NavigationMenuData;
+  footerMenu: NavigationMenuData;
+  storeWideSale: StoreWideSaleData | null;
+  cart: CartInitialData;
+  analyticsShop: AnalyticsShop | null;
+}
+
+declare module "@marko/run" {
+  interface Context {
+    storefront: AppStorefrontClient;
+    shell: ShellData;
+  }
+}
+
+/** What a middleware passes back: `next()`'s typed response or its own. */
+type AnyResponse = Response | NextResponse;
 
 export interface StorefrontOptions {
   cache?: CacheInstance;
@@ -40,81 +52,43 @@ export interface StorefrontOptions {
   fetch?: typeof globalThis.fetch;
 }
 
-export const StorefrontClient = createContextKey<AppStorefrontClient>();
-export const NavigationMenuConfig = createContextKey<NavigationMenuData>();
-export const FooterMenuConfig = createContextKey<NavigationMenuData>();
-export const StoreWideSaleConfig = createContextKey<StoreWideSaleData | null>();
-export const CartInitialDataConfig = createContextKey<CartInitialData>();
-export const AnalyticsShopConfig = createContextKey<AnalyticsShop | null>();
-const storefrontProperty = { property: "storefrontClient" } as const;
-const navigationMenuProperty = { property: "navigationMenu" } as const;
-const footerMenuProperty = { property: "footerMenu" } as const;
-const storeWideSaleProperty = { property: "storeWideSale" } as const;
-const cartInitialDataProperty = { property: "cartInitialData" } as const;
-const analyticsShopProperty = { property: "analyticsShop" } as const;
+const SUBSCRIBE_PATH = "/subscribe";
+const SEO_PATH =
+  /^\/(?:robots\.txt|sitemap\.xml|sitemap\/[^/]+(?:\/[^/]+)?\.xml)$/;
+const ROBOTS_PATH = "/robots.txt";
+const PRODUCT_GRID_FRAGMENT_PATH = /^\/collections\/[^/]+\/products$/;
 
-export function storefront(options: StorefrontOptions = {}): Middleware<
-  readonly [
-    {
-      key: typeof StorefrontClient;
-      value: AppStorefrontClient;
-      property: "storefrontClient";
-    },
-    {
-      key: typeof NavigationMenuConfig;
-      value: NavigationMenuData;
-      property: "navigationMenu";
-    },
-    {
-      key: typeof FooterMenuConfig;
-      value: NavigationMenuData;
-      property: "footerMenu";
-    },
-    {
-      key: typeof StoreWideSaleConfig;
-      value: StoreWideSaleData | null;
-      property: "storeWideSale";
-    },
-    {
-      key: typeof CartInitialDataConfig;
-      value: CartInitialData;
-      property: "cartInitialData";
-    },
-    {
-      key: typeof AnalyticsShopConfig;
-      value: AnalyticsShop | null;
-      property: "analyticsShop";
-    },
-  ]
-> {
-  return async (context, next) => {
-    // Asset requests are served before any Storefront wiring and never need
-    // a Shopify context or cart lookup.
-    if (context.url.pathname.startsWith("/assets/")) return next();
+const EMPTY_SHELL: ShellData = {
+  navigationMenu: FALLBACK_NAVIGATION_MENU,
+  footerMenu: FALLBACK_FOOTER_MENU,
+  storeWideSale: null,
+  cart: { cart: null },
+  analyticsShop: null,
+};
 
-    let runtime = getRuntime(context.request);
-    let env = { ...runtime.env, ...options.env };
+/**
+ * Creates the request's Storefront client and serves the Shopify-owned routes
+ * (cart API, checkout, permalinks, discount links) ahead of the app's own. Pages
+ * then get the shell data, and a 404 tries Shopify's redirects.
+ */
+export function storefront(options: StorefrontOptions = {}) {
+  return async (ctx: Context, next: NextFunction): Promise<AnyResponse> => {
+    let { platform } = ctx;
+    let env = { ...platform.env, ...options.env };
 
     if (
-      !runtime.buyerIp &&
-      context.request.method === "POST" &&
-      context.url.pathname === routes.subscribe.action.href()
+      !platform.buyerIp &&
+      ctx.request.method === "POST" &&
+      ctx.url.pathname === SUBSCRIBE_PATH
     ) {
-      // Subscription abuse controls require an adapter-supplied, trusted IP.
-      // Fail closed before Storefront/Admin work, without logging request data.
-      let headers = new Headers({ "Cache-Control": "private, no-store" });
-      let body = {
-        error: "Something went wrong. Please try again.",
-        success: false,
-      };
-      if (context.request.headers.get("Accept")?.includes("application/json")) {
-        return Response.json(body, { status: 503, headers });
-      }
-      headers.set("Content-Type", "text/html; charset=utf-8");
-      return new Response(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Subscribe unavailable</title></head><body><main><h1>Subscribe</h1><p role="alert">Something went wrong. Please try again.</p></main></body></html>',
-        { status: 503, headers },
-      );
+      return subscribeUnavailable(ctx.request);
+    }
+
+    if (platform.unsupportedLocale) {
+      ctx.shell = EMPTY_SHELL;
+      return ctx.request.method === "GET" || ctx.request.method === "HEAD"
+        ? next()
+        : new Response("Not Found", { status: 404 });
     }
 
     let storeDomain = env.PUBLIC_STORE_DOMAIN;
@@ -131,27 +105,23 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
       );
     }
 
-    let buyerIp = runtime.buyerIp;
+    let buyerIp = platform.buyerIp;
     if (!buyerIp) {
       throw new Error("The runtime adapter must provide a trusted buyer IP.");
     }
 
-    let activeMarket = context.get(MarketConfig);
+    let activeMarket = platform.market;
     let requestContext = createShopifyRequestContext({
-      request: context.request,
+      request: ctx.request,
       i18n: activeMarket,
       buyerIp,
     });
-    let storefrontFetch = createRetryingStorefrontFetch({
-      fetch: options.fetch,
-    });
-    let cache = options.cache ?? getStorefrontCache(context.request);
     let config = {
       storeDomain,
       storefrontId,
-      cache,
-      waitUntil: runtime.waitUntil,
-      fetch: storefrontFetch,
+      cache: options.cache ?? getStorefrontCache(platform.cache),
+      waitUntil: platform.waitUntil,
+      fetch: createRetryingStorefrontFetch({ fetch: options.fetch }),
     };
     let storefrontClient = privateStorefrontToken
       ? createStorefrontClient({
@@ -165,55 +135,39 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
           config: { ...config, publicStorefrontToken },
         });
 
-    context.set(StorefrontClient, storefrontClient, storefrontProperty);
+    ctx.storefront = storefrontClient;
 
-    let seoRoute = matchSeoRoute(context.url);
-    if (seoRoute) {
+    if (SEO_PATH.test(ctx.url.pathname)) {
       let analyticsShop =
-        seoRoute === routes.seo.robots
+        ctx.url.pathname === ROBOTS_PATH
           ? await queryAnalyticsShop(
               storefrontClient,
               storefrontId ?? "0",
               normalizeStoreDomain(storeDomain),
             )
           : null;
-      context.set(
-        NavigationMenuConfig,
-        FALLBACK_NAVIGATION_MENU,
-        navigationMenuProperty,
-      );
-      context.set(FooterMenuConfig, FALLBACK_FOOTER_MENU, footerMenuProperty);
-      context.set(StoreWideSaleConfig, null, storeWideSaleProperty);
-      context.set(
-        CartInitialDataConfig,
-        { cart: null },
-        cartInitialDataProperty,
-      );
-      context.set(AnalyticsShopConfig, analyticsShop, analyticsShopProperty);
-
+      ctx.shell = { ...EMPTY_SHELL, analyticsShop };
       return applyResponseHeaders(requestContext, await next());
     }
 
-    // Shopify-owned checkout, permalink, AJAX cart, and /api/cart routes must
-    // run before the app router. Match them against the prefix-free app path
-    // while retaining the active market on the request-scoped client.
-    let routingRequest = requestWithUrl(context.request, context.url);
+    // Shopify-owned checkout, permalink, AJAX cart, and /api/cart routes run
+    // ahead of the app's routes, on the prefix-free path the router matched,
+    // with the active market kept on the request-scoped client.
     let shopifyRoute = handleShopifyRoutes({
-      request: routingRequest,
+      request: ctx.request,
       requestContext,
-      sessionManager:
-        createEphemeralHydrogenRouteSessionManager(routingRequest),
+      sessionManager: createEphemeralHydrogenRouteSessionManager(ctx.request),
       storefrontClient,
       routeTemplates,
       handlers: [cartHandlers],
     });
     if (shopifyRoute) {
       return noStore(
-        localizeRedirect(await shopifyRoute, activeMarket, context.url),
+        localizeRedirect(await shopifyRoute, activeMarket, ctx.url),
       );
     }
 
-    let discount = getDiscountRequest(routingRequest);
+    let discount = getDiscountRequest(ctx.request);
     if (discount) {
       let location = localizeInternalUrl(
         discount.location,
@@ -221,23 +175,20 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
       );
       let headers = new Headers({
         Location: location,
+        "Cache-Control": "private, no-store",
       });
-      headers.set("Cache-Control", "private, no-store");
 
-      if (discount.code && context.request.method === "GET") {
+      if (discount.code && ctx.request.method === "GET") {
         try {
           let discountHeaders = await applyDiscountCode(
-            context.request,
+            ctx.request,
             storefrontClient,
             discount.code,
           );
           for (let [name, value] of discountHeaders)
             headers.append(name, value);
         } catch (error) {
-          if (
-            context.request.signal.aborted &&
-            error === context.request.signal.reason
-          )
+          if (ctx.request.signal.aborted && error === ctx.request.signal.reason)
             throw error;
           console.error("[hydrogen] Discount application failed");
         }
@@ -245,7 +196,7 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
 
       return applyResponseHeaders(
         requestContext,
-        redirect(location, { status: 303, headers }),
+        new Response(null, { status: 303, headers }),
       );
     }
 
@@ -253,79 +204,60 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
     // variant verification, and product grid fragments render only cards, so
     // neither needs shell/cart network requests.
     if (
-      (context.request.method === "POST" &&
-        context.url.pathname === routes.subscribe.action.href()) ||
-      isProductGridFragment(context.url)
+      (ctx.request.method === "POST" && ctx.url.pathname === SUBSCRIBE_PATH) ||
+      PRODUCT_GRID_FRAGMENT_PATH.test(ctx.url.pathname)
     ) {
-      context.set(
-        NavigationMenuConfig,
-        FALLBACK_NAVIGATION_MENU,
-        navigationMenuProperty,
-      );
-      context.set(FooterMenuConfig, FALLBACK_FOOTER_MENU, footerMenuProperty);
-      context.set(StoreWideSaleConfig, null, storeWideSaleProperty);
-      context.set(
-        CartInitialDataConfig,
-        { cart: null },
-        cartInitialDataProperty,
-      );
-      context.set(AnalyticsShopConfig, null, analyticsShopProperty);
+      ctx.shell = EMPTY_SHELL;
       return applyResponseHeaders(requestContext, await next());
     }
 
-    let [shellMenus, cartInitialData, analyticsShop] = await Promise.all([
+    let [shellMenus, cart, analyticsShop] = await Promise.all([
       queryShellMenus(storefrontClient, storeDomain),
-      getCartData(context.request, storefrontClient),
+      getCartData(ctx.request, storefrontClient),
       queryAnalyticsShop(
         storefrontClient,
         storefrontId ?? "0",
         normalizeStoreDomain(storeDomain),
       ),
     ]);
-    context.set(
-      NavigationMenuConfig,
-      shellMenus.navigationMenu,
-      navigationMenuProperty,
-    );
-    context.set(FooterMenuConfig, shellMenus.footerMenu, footerMenuProperty);
-    context.set(
-      StoreWideSaleConfig,
-      shellMenus.storeWideSale,
-      storeWideSaleProperty,
-    );
-    context.set(
-      CartInitialDataConfig,
-      cartInitialData,
-      cartInitialDataProperty,
-    );
-    context.set(AnalyticsShopConfig, analyticsShop, analyticsShopProperty);
+    ctx.shell = { ...shellMenus, cart, analyticsShop };
 
-    let response = await next();
+    let response: AnyResponse = await next();
     if (response.status === 404) {
       response =
         (await handleShopifyRedirects({
-          request: routingRequest,
+          request: ctx.request,
           storefrontClient,
           routeTemplates,
         })) ?? response;
-      response = localizeRedirect(response, activeMarket, context.url);
+      response = localizeRedirect(response, activeMarket, ctx.url);
     }
     return applyResponseHeaders(requestContext, noStoreRedirect(response));
   };
 }
 
-function requestWithUrl(request: Request, url: URL): Request {
-  if (request.url === url.href) return request;
-  // Share the body: Hydrogen consumes it only when a route matches; otherwise
-  // the app controller reads it. Cloning would leave an unread stream branch.
-  return new Request(url, request);
+/** Subscription abuse controls need a trusted IP; fail closed without one. */
+function subscribeUnavailable(request: Request): Response {
+  let headers = new Headers({ "Cache-Control": "private, no-store" });
+  let body = {
+    error: "Something went wrong. Please try again.",
+    success: false,
+  };
+  if (request.headers.get("Accept")?.includes("application/json")) {
+    return Response.json(body, { status: 503, headers });
+  }
+  headers.set("Content-Type", "text/html; charset=utf-8");
+  return new Response(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Subscribe unavailable</title></head><body><main><h1>Subscribe</h1><p role="alert">Something went wrong. Please try again.</p></main></body></html>',
+    { status: 503, headers },
+  );
 }
 
 function localizeRedirect(
-  response: Response,
+  response: AnyResponse,
   market: ActiveMarket,
   requestUrl: URL,
-): Response {
+): AnyResponse {
   if (!market.pathPrefix || response.status < 300 || response.status >= 400) {
     return response;
   }
@@ -410,13 +342,13 @@ function relativeUrl(url: URL): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
-function noStoreRedirect(response: Response): Response {
+function noStoreRedirect(response: AnyResponse): AnyResponse {
   return response.status >= 300 && response.status < 400
     ? noStore(response)
     : response;
 }
 
-function noStore(response: Response): Response {
+function noStore(response: AnyResponse): AnyResponse {
   try {
     response.headers.set("Cache-Control", "private, no-store");
     return response;
@@ -426,25 +358,6 @@ function noStore(response: Response): Response {
     mutableResponse.headers.set("Cache-Control", "private, no-store");
     return mutableResponse;
   }
-}
-
-type SeoRoute = (typeof routes.seo)[keyof typeof routes.seo];
-
-const seoRouteMatcher = createMultiMatcher<SeoRoute>();
-for (let route of Object.values(routes.seo)) {
-  seoRouteMatcher.add(route.pattern, route);
-}
-
-function matchSeoRoute(url: URL): SeoRoute | null {
-  return seoRouteMatcher.match(url)?.data ?? null;
-}
-
-const productGridFragmentMatcher = createMultiMatcher<true>();
-productGridFragmentMatcher.add(routes.collections.products.pattern, true);
-productGridFragmentMatcher.add(routes.collections.loadMore.pattern, true);
-
-function isProductGridFragment(url: URL): boolean {
-  return productGridFragmentMatcher.match(url) != null;
 }
 
 type EphemeralHydrogenRouteSessionManager = Parameters<
@@ -483,8 +396,8 @@ function createEphemeralHydrogenRouteSessionManager(
 
 function applyResponseHeaders(
   requestContext: ReturnType<typeof createShopifyRequestContext>,
-  response: Response,
-): Response {
+  response: AnyResponse,
+): AnyResponse {
   try {
     requestContext.applyResponseHeaders(response.headers);
     return response;

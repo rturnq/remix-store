@@ -2,22 +2,14 @@
   "compilerOptions": {
     "strict": true,
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "types": [
-      "node",
-      "remix/assets/types/hmr",
-      "vite/client",
-      "@shopify/oxygen-workers-types"
-    ],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "types": ["node", "vite/client", "@shopify/oxygen-workers-types"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "ESNext",
     "allowImportingTsExtensions": true,
-    "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "remix/component",
     "plugins": [
       {
         "name": "@shopify/hydrogen/ts-plugin"
@@ -25,5 +17,6 @@
     ],
     "noEmit": true
   },
-  "exclude": ["dist"]
+  "include": ["app", "vite", "*.ts", ".marko-run/routes.d.ts"],
+  "exclude": ["dist", "legacy"]
 }

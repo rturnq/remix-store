@@ -1,12 +1,13 @@
-import { oxygen } from "@shopify/mini-oxygen/vite";
+import marko from "@marko/run/vite";
+import nodeAdapter from "@marko/run-adapter-node";
 import { defineConfig } from "vite";
 
-import { remixOxygen } from "./vite/remix-oxygen.ts";
+import { withAppPlatform } from "./vite/app-platform.ts";
 
+// Node/Fly. `vite.oxygen.config.ts` builds the same routes into an Oxygen Worker.
 export default defineConfig({
   plugins: [
-    oxygen({ entry: "./app/entry.oxygen.ts" }),
-    // The preview package's 2026-10 date is not available in Oxygen yet.
-    remixOxygen({ compatibilityDate: "2026-04-01" }),
+    marko({ adapter: withAppPlatform(nodeAdapter()), routesDir: "app/routes" }),
   ],
+  build: { assetsInlineLimit: 0, sourcemap: false },
 });

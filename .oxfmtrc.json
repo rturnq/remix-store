@@ -13,6 +13,8 @@
     "admin-*.schema.json",
     "*.generated.*",
     "REMIX_STORE_MIGRATION_PLAN.md",
-    "REMIX_STORE_PARITY_PLAN.md"
+    "REMIX_STORE_PARITY_PLAN.md",
+    "legacy",
+    ".marko-run"
   ]
 }

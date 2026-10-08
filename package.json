@@ -4,31 +4,35 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development node --env-file-if-exists=.env --watch --import remix/node-tsx server.node.ts",
-    "hmr": "NODE_ENV=development node --env-file-if-exists=.env hmr.node.ts",
-    "start": "NODE_ENV=production node --env-file-if-exists=.env --import remix/node-tsx server.node.ts",
-    "dev:oxygen": "vite dev",
-    "build": "pnpm build:oxygen",
-    "build:oxygen": "vite build",
-    "preview": "pnpm preview:oxygen",
-    "preview:oxygen": "vite preview",
+    "dev": "marko-run dev --port 44100 --env .env server.node.ts",
+    "dev:oxygen": "marko-run dev --config vite.oxygen.config.ts --port 44100 app/entry.oxygen.ts",
+    "start": "NODE_ENV=production node --env-file-if-exists=.env dist/index.mjs",
+    "build": "marko-run build server.node.ts",
+    "build:oxygen": "marko-run build --config vite.oxygen.config.ts app/entry.oxygen.ts",
+    "preview": "marko-run preview --port 44100 --env .env server.node.ts",
+    "preview:oxygen": "marko-run preview --config vite.oxygen.config.ts --port 44100 app/entry.oxygen.ts",
     "deploy": "pnpm deploy:oxygen",
     "deploy:oxygen": "shopify hydrogen deploy --preview --build-command 'pnpm build:oxygen'",
     "lint": "oxlint . && oxfmt --check .",
-    "typecheck": "tsc --noEmit && hydrogen gql check --fail-on-warn && node scripts/check-admin-graphql.mjs",
+    "typecheck": "mtc && hydrogen gql check --fail-on-warn && node scripts/check-admin-graphql.mjs",
     "format": "oxfmt .",
-    "test": "remix test",
+    "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:oxygen": "pnpm build:oxygen && E2E_RUNTIME=oxygen-preview playwright test",
     "test:e2e:oxygen:dev": "E2E_RUNTIME=oxygen-dev playwright test"
   },
   "dependencies": {
+    "@marko/run": "0.11.13",
     "@pitlane/assets": "0.1.0",
     "@shopify/hydrogen": "2026.10.0-preview.4",
+    "marko": "6.4.4",
     "remix": "3.0.0",
-    "sanitize-html": "2.18.0"
+    "sanitize-html": "2.18.0",
+    "valibot": "1.5.0"
   },
   "devDependencies": {
+    "@marko/run-adapter-node": "2.0.6",
+    "@marko/type-check": "3.2.1",
     "@pitlane/vite-plugin-remix": "0.8.0",
     "@shopify/cli": "4.9.0",
     "@shopify/mini-oxygen": "4.2.3",
@@ -36,12 +40,14 @@
     "@types/node": "24.19.0",
     "@types/sanitize-html": "2.16.2",
     "@typescript/native": "npm:typescript@7.0.2",
+    "gql.tada": "1.9.2",
     "graphql": "16.14.2",
     "oxfmt": "0.71.0",
     "oxlint": "1.86.0",
     "playwright": "1.63.0",
     "typescript": "npm:@typescript/typescript6@6.0.2",
-    "vite": "8.3.1"
+    "vite": "8.3.1",
+    "vitest": "5.0.3"
   },
   "engines": {
     "node": ">=24.3.0"

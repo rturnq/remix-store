@@ -1,7 +1,5 @@
 import type { CacheInstance } from "@shopify/hydrogen";
 
-import { getRuntime } from "../runtime.ts";
-
 type StorefrontCacheProperty =
   | boolean
   | number
@@ -99,6 +97,7 @@ export class MemoryStorefrontCache {
 
 const nodeStorefrontCache = new MemoryStorefrontCache();
 
-export function getStorefrontCache(request: Request): CacheInstance {
-  return getRuntime(request).cache ?? nodeStorefrontCache;
+/** The runtime's Cache API when it has one, else the process-local cache. */
+export function getStorefrontCache(cache: Cache | undefined): CacheInstance {
+  return cache ?? nodeStorefrontCache;
 }

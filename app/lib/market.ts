@@ -1,10 +1,8 @@
-import type { SerializableObject } from "remix/component";
-
 export type MarketCountry = "US" | "CA";
 export type MarketLocale = "en-US" | "en-CA";
 export type MarketPathPrefix = "" | "/en-ca";
 
-export type ActiveMarket = SerializableObject & {
+export type ActiveMarket = {
   country: MarketCountry;
   language: "EN";
   locale: MarketLocale;
