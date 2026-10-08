@@ -71,9 +71,12 @@ html {
   background: var(--color-black);
   color-scheme: dark;
 }
-/* Pages are separate documents; let the browser cross-fade between them. */
-@view-transition {
-  navigation: auto;
+/* Pages are separate documents; let the browser cross-fade between them.
+   Without scripting, Chrome leaves the transition capturing every click. */
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
 }
 
 body {

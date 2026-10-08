@@ -17,7 +17,7 @@
     "typecheck": "mtc && hydrogen gql check --fail-on-warn && node scripts/check-admin-graphql.mjs",
     "format": "oxfmt . && prettier --write \"app/**/*.marko\"",
     "test": "vitest run",
-    "test:e2e": "playwright test",
+    "test:e2e": "pnpm build && playwright test",
     "test:e2e:oxygen": "pnpm build:oxygen && E2E_RUNTIME=oxygen-preview playwright test",
     "test:e2e:oxygen:dev": "E2E_RUNTIME=oxygen-dev playwright test"
   },

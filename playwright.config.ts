@@ -15,7 +15,7 @@ export default defineConfig({
   webServer: externalBaseUrl
     ? undefined
     : {
-        command: "node --import remix/node-tsx e2e/server.ts",
+        command: "node e2e/server.ts",
         reuseExistingServer: false,
         timeout: 120_000,
         // Static readiness leaves the first SSR request to the tests instead

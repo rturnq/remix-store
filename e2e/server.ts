@@ -1,31 +1,16 @@
+import { spawn } from "node:child_process";
 import * as http from "node:http";
 
-import { object, optional, parse, string } from "remix/data-schema";
-import { createRequestListener } from "remix/node-fetch-server";
-
-import { oxygen } from "@shopify/mini-oxygen/vite";
-import { createServer, preview } from "vite";
-
-import { remixOxygen } from "../vite/remix-oxygen.ts";
 import { createCart } from "../test/cart-fixtures.ts";
 
+// Serves the app against a deterministic fake Storefront API. E2E_RUNTIME
+// picks the runtime: the Node build, MiniOxygen dev, or the Oxygen build.
 const appPort = 44_110;
 const storefrontPort = 44_111;
 const env = {
   PUBLIC_STORE_DOMAIN: `http://localhost:${storefrontPort}`,
   PRIVATE_STOREFRONT_API_TOKEN: "e2e-token",
 };
-
-const storefrontRequestSchema = object({
-  query: string(),
-  variables: optional(
-    object({
-      country: optional(string()),
-      handle: optional(string()),
-      after: optional(string()),
-    }),
-  ),
-});
 
 type StorefrontVariables = {
   after?: string;
@@ -39,11 +24,11 @@ const storefrontServer = http.createServer(async (request, response) => {
   for await (let chunk of request) body += chunk;
 
   try {
-    let { query, variables } = parseStorefrontRequest(body);
+    let { query, variables } = JSON.parse(body) as StorefrontRequest;
     let operation = query.match(
       /\b(?:query|mutation)\s+([A-Za-z_][A-Za-z0-9_]*)/,
     )?.[1];
-    let data = storefrontData(operation, variables);
+    let data = storefrontData(operation, variables ?? {});
     response.writeHead(200, { "Content-Type": "application/json" });
     response.end(JSON.stringify({ data }));
   } catch (error) {
@@ -55,65 +40,59 @@ const storefrontServer = http.createServer(async (request, response) => {
 await listen(storefrontServer, storefrontPort);
 
 const runtime = process.env.E2E_RUNTIME ?? "node";
-let closeApp: () => Promise<void>;
-if (runtime === "node") {
-  let { app, closeNodeApp } = await import("../app/node.ts");
-  let appServer = http.createServer(
-    createRequestListener((request) =>
-      app.fetch(request, { buyerIp: "127.0.0.1", env }),
-    ),
-  );
-  await listen(appServer, appPort);
-  closeApp = async () => {
-    await close(appServer);
-    await closeNodeApp();
-  };
-} else if (runtime === "oxygen-preview" || runtime === "oxygen-dev") {
-  let config = {
-    configFile: false as const,
-    plugins: [
-      oxygen({
-        entry: "./app/entry.oxygen.ts",
-        env,
-      }),
-      remixOxygen({ compatibilityDate: "2026-04-01" }),
-    ],
-    server: { host: "localhost", port: appPort, strictPort: true },
-    preview: { host: "localhost", port: appPort, strictPort: true },
-  };
-  if (runtime === "oxygen-dev") {
-    let server = await createServer(config);
-    await server.listen();
-    closeApp = () => server.close();
-  } else {
-    let server = await preview(config);
-    closeApp = () =>
-      new Promise<void>((resolve, reject) => {
-        server.httpServer.close((error) => (error ? reject(error) : resolve()));
-      });
-  }
-} else {
-  throw new Error(`Unknown E2E_RUNTIME: ${runtime}`);
-}
-console.log(`E2E fixture server listening on http://localhost:${appPort}`);
+const commands: Record<string, string[]> = {
+  node: ["node", "dist/index.mjs"],
+  "oxygen-dev": [
+    "pnpm",
+    "exec",
+    "marko-run",
+    "dev",
+    "--config",
+    "vite.oxygen.config.ts",
+    "--port",
+    String(appPort),
+    "app/entry.oxygen.ts",
+  ],
+  "oxygen-preview": [
+    "pnpm",
+    "exec",
+    "marko-run",
+    "preview",
+    "--config",
+    "vite.oxygen.config.ts",
+    "--port",
+    String(appPort),
+    "app/entry.oxygen.ts",
+  ],
+};
+const command = commands[runtime];
+if (!command) throw new Error(`Unknown E2E_RUNTIME: ${runtime}`);
+
+// MiniOxygen reads the Worker's bindings from process.env over `.env`.
+const app = spawn(command[0]!, command.slice(1), {
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    ...env,
+    PORT: String(appPort),
+    ...(runtime === "node" && { NODE_ENV: "production" }),
+  },
+});
+app.on("exit", (code) => {
+  if (!shuttingDown) process.exit(code ?? 1);
+});
+console.log(`E2E fixture app (${runtime}) on http://localhost:${appPort}`);
 
 let shuttingDown = false;
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  await Promise.all([closeApp(), close(storefrontServer)]);
+  app.kill("SIGTERM");
+  await close(storefrontServer);
 }
 
 process.on("SIGINT", () => void shutdown().then(() => process.exit(0)));
 process.on("SIGTERM", () => void shutdown().then(() => process.exit(0)));
-
-function parseStorefrontRequest(body: string): StorefrontRequest {
-  let { query, variables: parsedVariables } = parse(
-    storefrontRequestSchema,
-    JSON.parse(body),
-  );
-  return { query, variables: parsedVariables ?? {} };
-}
 
 function storefrontData(
   operation: string | undefined,

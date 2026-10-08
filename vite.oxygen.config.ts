@@ -19,4 +19,8 @@ export default defineConfig({
     }),
   ],
   build: { assetsInlineLimit: 0, sourcemap: false },
+  environments: {
+    // workerd runs ES modules; pre-bundle sanitize-html's CommonJS (postcss).
+    ssr: { optimizeDeps: { include: ["sanitize-html"] } },
+  },
 });

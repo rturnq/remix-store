@@ -2,6 +2,12 @@ import { expect, test } from "playwright/test";
 
 import { openAvailableProduct } from "./storefront.ts";
 
+// @marko/vite's dev server hides the page until its scripts run.
+test.skip(
+  process.env.E2E_RUNTIME === "oxygen-dev",
+  "Without JavaScript, development renders nothing",
+);
+
 test("localized catalog navigation and add-to-cart work without JavaScript", async ({
   page,
 }) => {
