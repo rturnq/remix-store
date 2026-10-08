@@ -19,5 +19,5 @@
     "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo"
   },
   "include": ["app", "test", "vite", "*.ts", ".marko-run/routes.d.ts"],
-  "exclude": ["dist", "legacy"]
+  "exclude": ["dist"]
 }

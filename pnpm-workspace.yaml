@@ -5,7 +5,6 @@ minimumReleaseAgeExclude:
   - remix
   - "@remix-run/*"
   - "@shopify/*"
-  - "@pitlane/*"
   - marko
   - "@marko/*"
 minimumReleaseAgeStrict: true

@@ -17,7 +17,6 @@
     "admin-*.schema.json",
     "storefront-*.schema.json",
     "*.generated.*",
-    "legacy",
     ".marko-run"
   ]
 }
