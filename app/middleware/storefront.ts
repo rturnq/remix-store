@@ -121,9 +121,13 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
     let storefrontId = env["PUBLIC" + "_STOREFRONT_" + "ID"];
 
     let privateStorefrontToken = env["PRIVATE" + "_STOREFRONT_" + "API_TOKEN"];
-    if (!storeDomain || !privateStorefrontToken) {
+    // Local development can fall back to the store's public token. Shopify then
+    // attributes every request to the server's IP, so deployments use the
+    // private token, which forwards the buyer IP.
+    let publicStorefrontToken = env["PUBLIC" + "_STOREFRONT_" + "API_TOKEN"];
+    if (!storeDomain || !(privateStorefrontToken || publicStorefrontToken)) {
       throw new Error(
-        "PUBLIC_STORE_DOMAIN and PRIVATE_STOREFRONT_API_TOKEN are required to query Shopify.",
+        "PUBLIC_STORE_DOMAIN and PRIVATE_STOREFRONT_API_TOKEN (or PUBLIC_STOREFRONT_API_TOKEN) are required to query Shopify.",
       );
     }
 
@@ -142,18 +146,24 @@ export function storefront(options: StorefrontOptions = {}): Middleware<
       fetch: options.fetch,
     });
     let cache = options.cache ?? getStorefrontCache(context.request);
-    let storefrontClient = createStorefrontClient({
-      type: "private",
-      requestContext,
-      config: {
-        storeDomain,
-        storefrontId,
-        privateStorefrontToken,
-        cache,
-        waitUntil: runtime.waitUntil,
-        fetch: storefrontFetch,
-      },
-    });
+    let config = {
+      storeDomain,
+      storefrontId,
+      cache,
+      waitUntil: runtime.waitUntil,
+      fetch: storefrontFetch,
+    };
+    let storefrontClient = privateStorefrontToken
+      ? createStorefrontClient({
+          type: "private",
+          requestContext,
+          config: { ...config, privateStorefrontToken },
+        })
+      : createStorefrontClient({
+          type: "public",
+          requestContext,
+          config: { ...config, publicStorefrontToken },
+        });
 
     context.set(StorefrontClient, storefrontClient, storefrontProperty);
 

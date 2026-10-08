@@ -14,9 +14,13 @@ The storefront runs on Remix 3 and framework-neutral Hydrogen across native Node
 ```sh
 pnpm install
 cp .env.example .env
-# Populate PRIVATE_STOREFRONT_API_TOKEN from the configured Hydrogen environment.
 pnpm dev
 ```
+
+Without `PRIVATE_STOREFRONT_API_TOKEN`, local development queries Shopify with
+the store's public token from `.env.example`. Shopify then sees every request as
+coming from your machine; populate the private token from the configured
+Hydrogen environment to match deployments.
 
 The private Storefront token remains server-only and enables request-aware cart,
 checkout, and Shopify redirect handling. Oxygen supplies `oxygen-buyer-ip`; Fly
