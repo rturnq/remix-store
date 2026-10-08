@@ -1,5 +1,5 @@
-import * as assert from "remix/assert";
-import { describe, it } from "remix/test";
+import * as assert from "node:assert/strict";
+import { describe, it } from "vitest";
 
 import { focalPointPosition, getFocalPoint } from "./image-utils.ts";
 
