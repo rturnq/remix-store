@@ -1,8 +1,16 @@
 {
   "compilerOptions": {
     "strict": true,
-    "lib": ["ES2024", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client", "@shopify/oxygen-workers-types"],
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "node",
+      "vite/client",
+      "@shopify/oxygen-workers-types"
+    ],
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "target": "ESNext",
@@ -15,8 +23,17 @@
         "name": "@shopify/hydrogen/ts-plugin"
       }
     ],
-    "noEmit": true
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.cache/tsconfig.tsbuildinfo"
   },
-  "include": ["app", "vite", "*.ts", ".marko-run/routes.d.ts"],
-  "exclude": ["dist", "legacy"]
+  "include": [
+    "app",
+    "vite",
+    "*.ts",
+    ".marko-run/routes.d.ts"
+  ],
+  "exclude": [
+    "dist",
+    "legacy"
+  ]
 }
