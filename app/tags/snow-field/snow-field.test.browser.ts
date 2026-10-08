@@ -1,141 +1,135 @@
-import * as assert from "remix/assert";
-import { describe, it, type TestContext } from "remix/test";
-import { render } from "remix/component/test";
+import { cleanup, render } from "@marko/testing-library";
+import { afterEach, assert, describe, it, onTestFinished, vi } from "vitest";
 
-import { SnowField } from "./public/snow-field.tsx";
+import { query } from "../../../test/browser-fixtures.ts";
+import SnowField from "./index.marko";
 
 type FrameCallback = (time: number) => void;
 type MotionListener = (event: MediaQueryListEvent) => void;
 
 type CanvasHarness = ReturnType<typeof installCanvasHarness>;
 
-describe("seasonal snow browser lifecycle", () => {
-  it("keeps the static fallback and schedules no animation for reduced motion", (t) => {
-    let harness = installCanvasHarness(t, { reducedMotion: true });
-    let view = render(<SnowField />);
-    t.after(view.cleanup);
+afterEach(cleanup);
 
-    let overlay = view.$("[data-seasonal-snow]");
-    let fallback = view.$("[data-snow-static]");
-    assert.ok(overlay instanceof HTMLDivElement);
-    assert.ok(fallback instanceof HTMLDivElement);
-    assert.equal(overlay.getAttribute("aria-hidden"), "true");
-    assert.equal(overlay.hasAttribute("data-snow-canvas-ready"), false);
-    assert.equal(overlay.hasAttribute("data-snow-reduced-motion"), true);
-    assert.equal(getComputedStyle(fallback).display, "block");
-    assert.equal(harness.contextRequests, 0);
-    assert.equal(harness.frames.size, 0);
+describe("seasonal snow browser lifecycle", () => {
+  it("keeps the static fallback and schedules no animation for reduced motion", async () => {
+    let harness = installCanvasHarness({ reducedMotion: true });
+    let { container } = await renderSnow();
+
+    let overlay = query(container, "[data-seasonal-snow]", HTMLDivElement);
+    let fallback = query(container, "[data-snow-static]", HTMLDivElement);
+    assert.strictEqual(overlay.getAttribute("aria-hidden"), "true");
+    assert.strictEqual(overlay.hasAttribute("data-snow-canvas-ready"), false);
+    assert.strictEqual(overlay.hasAttribute("data-snow-reduced-motion"), true);
+    assert.strictEqual(getComputedStyle(fallback).display, "block");
+    assert.strictEqual(harness.contextRequests, 0);
+    assert.strictEqual(harness.frames.size, 0);
   });
 
-  it("caps DPR at 2, animates, resizes, and releases browser work", (t) => {
-    let harness = installCanvasHarness(t);
-    let view = render(<SnowField />);
-    let canvas = view.$("canvas");
-    let overlay = view.$("[data-seasonal-snow]");
-    assert.ok(canvas instanceof HTMLCanvasElement);
-    assert.ok(overlay instanceof HTMLDivElement);
+  it("caps DPR at 2, animates, resizes, and releases browser work", async () => {
+    let harness = installCanvasHarness();
+    let view = await renderSnow();
+    let canvas = query(view.container, "canvas", HTMLCanvasElement);
+    let overlay = query(view.container, "[data-seasonal-snow]", HTMLDivElement);
 
-    assert.equal(canvas.width, 100);
-    assert.equal(canvas.height, 50);
+    assert.strictEqual(canvas.width, 100);
+    assert.strictEqual(canvas.height, 50);
     assert.deepEqual(harness.transforms.at(-1), [1, 0, 0, 1, 0, 0]);
-    assert.equal(overlay.getAttribute("data-snow-canvas-ready"), "true");
-    assert.equal(harness.frames.size, 1);
+    assert.strictEqual(overlay.getAttribute("data-snow-canvas-ready"), "true");
+    assert.strictEqual(harness.frames.size, 1);
     assert.ok(harness.arcs > 0);
 
     let firstFrame = takeFrame(harness);
     firstFrame(16);
-    assert.equal(harness.frames.size, 1);
+    assert.strictEqual(harness.frames.size, 1);
 
     harness.width = 120;
     harness.height = 60;
     harness.dpr = 3;
     harness.observerCallback?.();
-    assert.equal(canvas.width, 240);
-    assert.equal(canvas.height, 120);
+    assert.strictEqual(canvas.width, 240);
+    assert.strictEqual(canvas.height, 120);
     assert.deepEqual(harness.transforms.at(-1), [2, 0, 0, 2, 0, 0]);
 
     let retainedFrame = takeFrame(harness);
     view.cleanup();
-    assert.equal(harness.observerDisconnected, true);
-    assert.equal(harness.cancelledFrames.length, 1);
+    assert.strictEqual(harness.observerDisconnected, true);
+    assert.strictEqual(harness.cancelledFrames.length, 1);
     retainedFrame(32);
     harness.observerCallback?.();
-    assert.equal(harness.frames.size, 0);
+    assert.strictEqual(harness.frames.size, 0);
   });
 
-  it("switches from motion to the static fallback immediately", (t) => {
-    let harness = installCanvasHarness(t);
-    let view = render(<SnowField />);
-    t.after(view.cleanup);
+  it("switches from motion to the static fallback immediately", async () => {
+    let harness = installCanvasHarness();
+    let { container } = await renderSnow();
 
-    let overlay = view.$("[data-seasonal-snow]");
-    let fallback = view.$("[data-snow-static]");
-    assert.ok(overlay instanceof HTMLDivElement);
-    assert.ok(fallback instanceof HTMLDivElement);
-    assert.equal(overlay.getAttribute("data-snow-canvas-ready"), "true");
-    assert.equal(getComputedStyle(fallback).display, "none");
-    let canvas = view.$("canvas");
-    assert.ok(canvas instanceof HTMLCanvasElement);
-    assert.equal(getComputedStyle(canvas).display, "block");
-    assert.equal(harness.frames.size, 1);
+    let overlay = query(container, "[data-seasonal-snow]", HTMLDivElement);
+    let fallback = query(container, "[data-snow-static]", HTMLDivElement);
+    let canvas = query(container, "canvas", HTMLCanvasElement);
+    assert.strictEqual(overlay.getAttribute("data-snow-canvas-ready"), "true");
+    assert.strictEqual(getComputedStyle(fallback).display, "none");
+    assert.strictEqual(getComputedStyle(canvas).display, "block");
+    assert.strictEqual(harness.frames.size, 1);
 
     harness.setReducedMotion(true);
 
-    assert.equal(overlay.hasAttribute("data-snow-canvas-ready"), false);
-    assert.equal(overlay.hasAttribute("data-snow-reduced-motion"), true);
-    assert.equal(getComputedStyle(fallback).display, "block");
-    assert.equal(harness.frames.size, 0);
-    assert.equal(harness.cancelledFrames.length, 1);
-    assert.equal(harness.observerDisconnected, true);
+    assert.strictEqual(overlay.hasAttribute("data-snow-canvas-ready"), false);
+    assert.strictEqual(overlay.hasAttribute("data-snow-reduced-motion"), true);
+    assert.strictEqual(getComputedStyle(fallback).display, "block");
+    assert.strictEqual(harness.frames.size, 0);
+    assert.strictEqual(harness.cancelledFrames.length, 1);
+    assert.strictEqual(harness.observerDisconnected, true);
   });
 
-  it("restarts the canvas when reduced motion is disabled", (t) => {
-    let harness = installCanvasHarness(t, { reducedMotion: true });
-    let view = render(<SnowField />);
-    t.after(view.cleanup);
+  it("restarts the canvas when reduced motion is disabled", async () => {
+    let harness = installCanvasHarness({ reducedMotion: true });
+    let { container } = await renderSnow();
 
-    let overlay = view.$("[data-seasonal-snow]");
-    assert.ok(overlay instanceof HTMLDivElement);
-    assert.equal(overlay.hasAttribute("data-snow-canvas-ready"), false);
-    assert.equal(harness.contextRequests, 0);
+    let overlay = query(container, "[data-seasonal-snow]", HTMLDivElement);
+    assert.strictEqual(overlay.hasAttribute("data-snow-canvas-ready"), false);
+    assert.strictEqual(harness.contextRequests, 0);
 
     harness.setReducedMotion(false);
 
-    assert.equal(overlay.getAttribute("data-snow-canvas-ready"), "true");
-    assert.equal(harness.contextRequests, 1);
-    assert.equal(harness.frames.size, 1);
+    assert.strictEqual(overlay.getAttribute("data-snow-canvas-ready"), "true");
+    assert.strictEqual(harness.contextRequests, 1);
+    assert.strictEqual(harness.frames.size, 1);
     assert.ok(harness.arcs > 0);
   });
 
-  it("removes its motion preference listener during cleanup", (t) => {
-    let harness = installCanvasHarness(t, { reducedMotion: true });
-    let view = render(<SnowField />);
-    assert.equal(harness.motionListenerCount, 1);
+  it("removes its motion preference listener during cleanup", async () => {
+    let harness = installCanvasHarness({ reducedMotion: true });
+    let view = await renderSnow();
+    assert.strictEqual(harness.motionListenerCount, 1);
 
     view.cleanup();
 
-    assert.equal(harness.motionListenerCount, 0);
+    assert.strictEqual(harness.motionListenerCount, 0);
     harness.setReducedMotion(false);
-    assert.equal(harness.contextRequests, 0);
-    assert.equal(harness.frames.size, 0);
+    assert.strictEqual(harness.contextRequests, 0);
+    assert.strictEqual(harness.frames.size, 0);
   });
 
-  it("leaves the static fallback intact when canvas setup fails", (t) => {
-    let harness = installCanvasHarness(t, { missingContext: true });
-    let view = render(<SnowField />);
-    t.after(view.cleanup);
+  it("leaves the static fallback intact when canvas setup fails", async () => {
+    let harness = installCanvasHarness({ missingContext: true });
+    let { container } = await renderSnow();
 
-    let overlay = view.$("[data-seasonal-snow]");
-    assert.ok(overlay instanceof HTMLDivElement);
-    assert.equal(overlay.hasAttribute("data-snow-canvas-ready"), false);
-    assert.equal(harness.contextRequests, 1);
-    assert.equal(harness.frames.size, 0);
-    assert.equal(harness.observerCallback, null);
+    let overlay = query(container, "[data-seasonal-snow]", HTMLDivElement);
+    assert.strictEqual(overlay.hasAttribute("data-snow-canvas-ready"), false);
+    assert.strictEqual(harness.contextRequests, 1);
+    assert.strictEqual(harness.frames.size, 0);
+    assert.strictEqual(harness.observerCallback, null);
   });
 });
 
+// The canvas double replaces requestAnimationFrame, which `act` waits on; the
+// tag's effect runs as it mounts, so no flush is needed.
+function renderSnow() {
+  return render(SnowField);
+}
+
 function installCanvasHarness(
-  t: TestContext,
   options: { missingContext?: boolean; reducedMotion?: boolean } = {},
 ) {
   let width = 100;
@@ -169,15 +163,14 @@ function installCanvasHarness(
   // implemented by this focused browser test double.
   let context = contextDouble as CanvasRenderingContext2D;
 
-  t.mock.method(HTMLCanvasElement.prototype, "getContext", function () {
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => {
     contextRequests++;
     return options.missingContext ? null : context;
   });
-  mockGetter(t, HTMLElement.prototype, "clientWidth", () => width);
-  mockGetter(t, HTMLElement.prototype, "clientHeight", () => height);
-  mockGetter(t, window, "devicePixelRatio", () => dpr);
+  mockGetter(HTMLElement.prototype, "clientWidth", () => width);
+  mockGetter(HTMLElement.prototype, "clientHeight", () => height);
+  mockGetter(window, "devicePixelRatio", () => dpr);
   replaceProperty(
-    t,
     window,
     "requestAnimationFrame",
     (callback: FrameCallback) => {
@@ -186,11 +179,11 @@ function installCanvasHarness(
       return id;
     },
   );
-  replaceProperty(t, window, "cancelAnimationFrame", (id: number) => {
+  replaceProperty(window, "cancelAnimationFrame", (id: number) => {
     cancelledFrames.push(id);
     frames.delete(id);
   });
-  replaceProperty(t, window, "matchMedia", () => {
+  replaceProperty(window, "matchMedia", () => {
     let mediaQueryListDouble = {
       get matches() {
         return reducedMotion;
@@ -223,7 +216,7 @@ function installCanvasHarness(
       observerDisconnected = true;
     }
   }
-  replaceProperty(t, globalThis, "ResizeObserver", CanvasResizeObserver);
+  replaceProperty(globalThis, "ResizeObserver", CanvasResizeObserver);
 
   return {
     get arcs() {
@@ -286,14 +279,13 @@ function takeFrame(harness: CanvasHarness): FrameCallback {
 type GetterOwner = HTMLElement | Window;
 
 function mockGetter<Owner extends GetterOwner, Key extends keyof Owner>(
-  t: TestContext,
   target: Owner,
   property: Key,
   getter: () => Owner[Key],
 ) {
   let descriptor = Object.getOwnPropertyDescriptor(target, property);
   Object.defineProperty(target, property, { configurable: true, get: getter });
-  t.after(() => {
+  onTestFinished(() => {
     if (descriptor) Object.defineProperty(target, property, descriptor);
     else Reflect.deleteProperty(target, property);
   });
@@ -304,10 +296,10 @@ type BrowserPropertyOwner = Window | typeof globalThis;
 function replaceProperty<
   Owner extends BrowserPropertyOwner,
   Key extends keyof Owner,
->(t: TestContext, target: Owner, property: Key, value: Owner[Key]) {
+>(target: Owner, property: Key, value: Owner[Key]) {
   let descriptor = Object.getOwnPropertyDescriptor(target, property);
   Object.defineProperty(target, property, { configurable: true, value });
-  t.after(() => {
+  onTestFinished(() => {
     if (descriptor) Object.defineProperty(target, property, descriptor);
     else Reflect.deleteProperty(target, property);
   });

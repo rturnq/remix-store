@@ -32,7 +32,9 @@
   },
   "devDependencies": {
     "@marko/run-adapter-node": "2.0.6",
+    "@marko/testing-library": "6.4.2",
     "@marko/type-check": "3.2.1",
+    "@marko/vite": "6.1.13",
     "@pitlane/vite-plugin-remix": "0.8.0",
     "@shopify/cli": "4.9.0",
     "@shopify/mini-oxygen": "4.2.3",
@@ -40,6 +42,7 @@
     "@types/node": "24.19.0",
     "@types/sanitize-html": "2.16.2",
     "@typescript/native": "npm:typescript@7.0.2",
+    "@vitest/browser-playwright": "5.0.3",
     "gql.tada": "1.9.2",
     "graphql": "16.14.2",
     "oxfmt": "0.71.0",

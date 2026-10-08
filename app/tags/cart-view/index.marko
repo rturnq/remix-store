@@ -184,7 +184,9 @@ static const FREE_SHIPPING_THRESHOLD = 75;
     ]>
       <for|line, index| of=lines by="id">
         <const/merchandise=line.merchandise>
-        <const/linePending=state?.pending.lines.has(line.id) ?? false>
+        // `lines?.` because Marko's compiler drops the chain's short-circuit
+        // before a call on a tracked path; a client render without state threw.
+        <const/linePending=state?.pending.lines?.has(line.id) ?? false>
         <const/lineMessages=(
           errors ? getErrorGroupMessages(errors.lines.get(line.id)) : []
         )>

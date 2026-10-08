@@ -16,3 +16,4 @@ storefront-graphql-env.d.ts
 customer-account-graphql-env.d.ts
 .marko-run
 /dist-node
+/.vitest
