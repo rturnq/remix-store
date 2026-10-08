@@ -57,12 +57,12 @@ first.
 
 `.github/workflows/fly-deployment.yml` deploys every branch push, then verifies `/health` and the server-rendered home page. Global concurrency cancels an older in-progress deployment when a newer push arrives.
 
-The workflow passes the Git commit SHA as `ASSET_BUILD_ID`, giving each release immutable Remix Asset URLs. After migration, restrict the workflow trigger to `main` and move the deploy token into a protected GitHub environment.
+The image builds the app with `pnpm build`; Vite fingerprints browser assets by content, so each release's `/assets/*` URLs are immutable. The workflow deploys only from `main` and `v3`; move the deploy token into a protected GitHub environment.
 
 ## Local image verification
 
 ```sh
-docker build --build-arg ASSET_BUILD_ID=local-test -t remix-store-fly .
+docker build -t remix-store-fly .
 docker run --rm --env-file .env -p 44100:44100 remix-store-fly
 ```
 

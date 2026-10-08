@@ -1,5 +1,8 @@
 name: Fly Deploy
-on: push
+# The Fly app is production; other branches must not replace it.
+on:
+  push:
+    branches: [main, v3]
 
 permissions:
   contents: read
@@ -25,7 +28,6 @@ jobs:
       - name: Deploy
         run: >-
           flyctl deploy
-          --build-arg "ASSET_BUILD_ID=$GITHUB_SHA"
           --ha=false
           --remote-only
         env:

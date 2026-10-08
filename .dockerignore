@@ -12,3 +12,7 @@ test-results
 **/*.spec.ts
 **/*.test.ts
 *.md
+.marko-run
+legacy
+dist-node
+test
