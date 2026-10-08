@@ -9,6 +9,7 @@ import {
   type StorefrontAnalytics,
 } from "@shopify/hydrogen";
 
+import { hasPendingCartWork } from "../cart-view.ts";
 import { routeTemplates } from "../route-templates.ts";
 
 let shopifyScriptsReady: Promise<void> | undefined;
@@ -72,36 +73,6 @@ export function publishCartViewed(store?: CartStore): boolean {
     cart: toAnalyticsCart(store ? settledCart(store.getState()) : null),
   });
   return true;
-}
-
-/**
- * Returns `true` when the cart store (or a raw state) has in-flight optimistic
- * work that has not yet been confirmed by the server.
- *
- * Accepts either a `CartStore` or a `CartState` so every call site can use one
- * helper instead of re-deriving the same pending check.
- */
-export function hasPendingCartWork(
-  source: CartState | CartStore | undefined,
-): boolean {
-  let state: CartState | undefined;
-  if (source === undefined) {
-    state = undefined;
-  } else if ("getState" in source) {
-    state = source.getState();
-  } else {
-    state = source;
-  }
-  if (!state) return false;
-  let pendingCost =
-    state.pending.cost ??
-    (state.pending.lines.size > 0 || state.pending.discountCodes.size > 0);
-  return (
-    state.revalidating === true ||
-    pendingCost ||
-    state.pending.note ||
-    state.pending.attributes
-  );
 }
 
 function settledCart(state: CartState): CartData | null {

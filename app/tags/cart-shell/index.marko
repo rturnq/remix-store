@@ -1,6 +1,16 @@
+import type { CartState, CartStore } from "@shopify/hydrogen";
+
 import type { CartInitialData } from "../../data/cart.ts";
+import { cartDialogTitle, resolveCartViewState } from "../../lib/cart-view.ts";
 import { marketPath, type ActiveMarket } from "../../lib/market.ts";
-import styles from "./style.module.css";
+client import {
+  CART_DRAWER_ID,
+  closeCartDrawer,
+  openCartDrawer,
+  setCartTriggerExpanded,
+} from "../../lib/browser/cart-drawer.ts";
+client import { getBrowserCartStore } from "../../lib/browser/cart-store.ts";
+import styles from "../cart-view/style.module.css";
 
 export interface Input {
   automaticDiscountLabel?: string;
@@ -8,11 +18,19 @@ export interface Input {
   market: ActiveMarket;
 }
 
-<const/quantity=input.cart.cart?.totalQuantity ?? 0>
-<if=quantity === 0>
+<let/store=undefined as CartStore | undefined>
+<let/state=undefined as CartState | undefined>
+// The drawer keeps showing the last cart with items while it closes.
+<let/drawerState=undefined as CartState | undefined>
+<const/view=resolveCartViewState(state, input.cart)>
+<const/drawerView=resolveCartViewState(drawerState, input.cart)>
+<const/quantity=view.cart?.totalQuantity ?? 0>
+<const/cartIsEmpty=!view.loading && !view.cart?.lines.nodes.length>
+
+<if=view.loading || !view.cart || quantity === 0>
   <a
     href=marketPath("/collections/all", input.market.pathPrefix)
-    class=[styles.trigger, styles.shop]
+    class=[styles.triggerBase, styles.shopTrigger]
   >
     <app-icon name="cart"/>
     <span>Shop</span>
@@ -20,10 +38,7 @@ export interface Input {
   </a>
 </if>
 <else>
-  <a
-    href=marketPath("/cart", input.market.pathPrefix)
-    class=[styles.trigger, styles.cart]
-  >
+  <define/Label>
     <app-icon name="cart"/>
     <span>${quantity}</span>
     <span data-expanded-label="true">
@@ -31,5 +46,76 @@ export interface Input {
         ${" "}in cart
       </span>
     </span>
+  </define>
+  <a
+    href=marketPath("/cart", input.market.pathPrefix)
+    class=[styles.triggerBase, styles.cartTrigger, styles.mobileCartTrigger]
+  >
+    <Label/>
   </a>
+  <button
+    type="button"
+    aria-controls="cart-drawer"
+    aria-expanded="false"
+    aria-haspopup="dialog"
+    class=[styles.triggerBase, styles.cartTrigger, styles.desktopCartTrigger]
+    onClick() {
+      openCartDrawer();
+    }
+  >
+    <Label/>
+  </button>
 </else>
+<dialog
+  id="cart-drawer"
+  aria-labelledby="cart-drawer-title"
+  closedby="any"
+  data-cart-empty=cartIsEmpty && "true"
+  class=styles.drawer
+  onToggle(event) {
+    setCartTriggerExpanded((event.target as HTMLDialogElement).open);
+  }
+>
+  <header class=styles.drawerHeader>
+    <h2 id="cart-drawer-title">${cartDialogTitle(drawerView)}</h2>
+    <button
+      type="button"
+      aria-label="Close cart"
+      onClick() {
+        closeCartDrawer();
+      }
+    >
+      <app-icon name="x"/>
+    </button>
+  </header>
+  <div class=styles.drawerBody>
+    <cart-view
+      ...drawerView
+      automaticDiscountLabel=input.automaticDiscountLabel
+      drawer
+      market=input.market
+      store=store
+    />
+  </div>
+</dialog>
+<script>
+  const cartStore = getBrowserCartStore(input.cart, input.market.pathPrefix);
+  if (cartStore) {
+    let hadItems = false;
+    // Subscribe before reading so no connected-store update can be missed.
+    const unsubscribe = cartStore.subscribe((next) => {
+      let hasItems = next.data.lines.nodes.length > 0;
+      let removedFinalLine = hadItems && !hasItems;
+      hadItems = hasItems;
+      state = next;
+      if (hasItems) drawerState = next;
+      if (removedFinalLine) closeCartDrawer();
+    });
+    let current = cartStore.getState();
+    hadItems = current.data.lines.nodes.length > 0;
+    store = cartStore;
+    state = current;
+    drawerState = current;
+    $signal.onabort = unsubscribe;
+  }
+</script>

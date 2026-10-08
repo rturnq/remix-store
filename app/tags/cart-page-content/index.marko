@@ -1,0 +1,35 @@
+import type { CartState, CartStore } from "@shopify/hydrogen";
+
+import type { CartInitialData } from "../../data/cart.ts";
+import { resolveCartViewState } from "../../lib/cart-view.ts";
+import type { ActiveMarket } from "../../lib/market.ts";
+client import { publishCartViewedWhenSettled } from "../../lib/browser/analytics.ts";
+client import { getBrowserCartStore } from "../../lib/browser/cart-store.ts";
+
+export interface Input {
+  automaticDiscountLabel?: string;
+  cart: CartInitialData;
+  market: ActiveMarket;
+}
+
+<let/store=undefined as CartStore | undefined>
+<let/state=undefined as CartState | undefined>
+<cart-view
+  ...resolveCartViewState(state, input.cart)
+  automaticDiscountLabel=input.automaticDiscountLabel
+  market=input.market
+  store=store
+/>
+<script>
+  const cartStore = getBrowserCartStore(input.cart, input.market.pathPrefix);
+  if (cartStore) {
+    // Subscribe before reading so no connected-store update can be missed.
+    const unsubscribe = cartStore.subscribe((next) => {
+      state = next;
+    });
+    store = cartStore;
+    state = cartStore.getState();
+    publishCartViewedWhenSettled(cartStore);
+    $signal.onabort = unsubscribe;
+  }
+</script>

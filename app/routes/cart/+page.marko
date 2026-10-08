@@ -1,0 +1,20 @@
+import { marketPath } from "../../lib/market.ts";
+import styles from "./style.module.css";
+
+<const/{ shell, platform }=$global>
+<const/quantity=shell.cart.cart?.totalQuantity>
+<app-document
+  canonicalUrl=(
+    $global.url.origin + marketPath("/cart", platform.market.pathPrefix)
+  )
+  title=quantity ? `Cart (${quantity})` : "Cart"
+  noIndex
+>
+  <main class=styles.cartMain>
+    <cart-page-content
+      cart=shell.cart
+      automaticDiscountLabel=shell.storeWideSale?.title
+      market=platform.market
+    />
+  </main>
+</app-document>

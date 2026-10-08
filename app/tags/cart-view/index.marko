@@ -1,0 +1,371 @@
+import type { CartStore, MoneyV2 } from "@shopify/hydrogen";
+
+import { getCartApiPath } from "../../lib/cart-routes.ts";
+import {
+  htmlAttributes,
+  getBannerMessages,
+  getCartDiscountAllocation,
+  getErrorGroupMessages,
+  getLineCompareAtPrice,
+  hasPendingCartWork,
+  money,
+  register,
+  type CartViewState,
+} from "../../lib/cart-view.ts";
+import { marketPath, type ActiveMarket } from "../../lib/market.ts";
+import { shopifyImageUrl } from "../../lib/shopify-image.ts";
+client import { closeCartDrawer } from "../../lib/browser/cart-drawer.ts";
+import styles from "./style.module.css";
+
+export interface Input extends CartViewState {
+  automaticDiscountLabel?: string;
+  drawer?: boolean;
+  market: ActiveMarket;
+  store?: CartStore;
+}
+
+static const FREE_SHIPPING_THRESHOLD = 75;
+
+<id/viewId>
+<let/dismissedAt=0>
+<const/{ cart, drawer, errors, market, state }=input>
+<const/lines=cart?.lines.nodes ?? []>
+<const/bannerMessages=(
+  errors
+    ? getBannerMessages(
+        errors,
+        lines.map((line) => line.id),
+      )
+    : []
+)>
+<const/showBanner=Boolean(
+  errors && bannerMessages.length > 0 && errors.lastUpdatedAt > dismissedAt,
+)>
+
+<define/ErrorBanner>
+  <div role="alert" class=styles.errorBanner>
+    <div>
+      <for|message| of=bannerMessages>
+        <p>${message}</p>
+      </for>
+    </div>
+    <button
+      type="button"
+      onClick() {
+        dismissedAt = errors?.lastUpdatedAt ?? Date.now();
+      }
+    >
+      Dismiss
+    </button>
+  </div>
+</define>
+
+<define/FreeShippingNotice|{ subtotal }: { subtotal: MoneyV2 }|>
+  <const/amount=Number(subtotal.amount)>
+  // Only compare the subtotal with the minimum when both are in USD.
+  <const/showProgress=(
+    subtotal.currencyCode === "USD" &&
+    Boolean(subtotal.amount.trim()) &&
+    Number.isFinite(amount) &&
+    amount >= 0
+  )>
+  <const/achieved=amount >= FREE_SHIPPING_THRESHOLD>
+  <const/percentage=Math.min(
+    Math.floor((amount / FREE_SHIPPING_THRESHOLD) * 100),
+    100,
+  )>
+  <div class=styles.freeShipping>
+    <if=showProgress>
+      <p>
+        ${
+          achieved
+            ? "You've reached the US$75 free shipping minimum."
+            : `Add ${money(
+                {
+                  amount: (FREE_SHIPPING_THRESHOLD - amount).toFixed(2),
+                  currencyCode: "USD",
+                },
+                market.locale,
+              )} more for free shipping`
+        }
+      </p>
+      <div data-progress-track="true">
+        <span
+          role="progressbar"
+          aria-label="Free shipping progress"
+          aria-valuemin=0
+          aria-valuemax=100
+          aria-valuenow=percentage
+          data-complete=achieved && "true"
+          style=`width:${percentage}%`
+        />
+      </div>
+    </if>
+    <if=market.country === "US">
+      <p class=styles.shippingConfirmation>
+        Shipping options confirmed at checkout.
+      </p>
+    </if>
+    <else>
+      <p>
+        Free shipping with a US$75 minimum. See your shipping options at
+        checkout.
+      </p>
+    </else>
+  </div>
+</define>
+
+<if=input.loading>
+  <section
+    aria-busy="true"
+    aria-label="Loading cart"
+    class=styles.drawerLoading
+  >
+    <p>Loading cart…</p>
+  </section>
+</if>
+<else if=!cart || lines.length === 0>
+  <if=!drawer>
+    <section>
+      <if=showBanner>
+        <ErrorBanner/>
+      </if>
+      <branded-state
+        kind="empty"
+        heading="No items in cart"
+        copy="Please browse our catalog and add items before checking out."
+        href=marketPath("/collections/all", market.pathPrefix)
+        linkLabel="Shop All"
+        icon="cart"
+      />
+    </section>
+  </if>
+</else>
+<else>
+  <const/currentCart=cart!>
+  <const/cartPending=hasPendingCartWork(state)>
+  <const/discountAllocation=getCartDiscountAllocation(currentCart)>
+  <const/hasFinalTotal=Number(currentCart.cost.subtotalAmount.amount) !==
+  Number(currentCart.cost.totalAmount.amount)>
+  <const/discountLabel=(
+    input.automaticDiscountLabel?.trim() || "Automatic discount"
+  )>
+  <section
+    class=drawer ? styles.drawerContent : styles.pageCartContent
+    onSubmit(event) {
+      // Before the store connects, the forms post natively.
+      let store = input.store;
+      if (!store) return;
+      event.preventDefault();
+      void store.handleFormSubmit(event).catch((error) => {
+        if (!(error instanceof Error && error.name === "AbortError")) {
+          console.error("[hydrogen] cart update failed", error);
+        }
+      });
+    }
+  >
+    <if=!drawer>
+      <div class=styles.pageTitle>
+        <page-title title="Cart"/>
+      </div>
+      <div aria-hidden="true" class=styles.mobileCartSpacer/>
+      <h1 class=styles.mobileCartTitle>Cart</h1>
+      <h2 class=styles.cartCount>
+        ${currentCart.totalQuantity} item(s) in cart
+      </h2>
+    </if>
+    <if=showBanner>
+      <ErrorBanner/>
+    </if>
+
+    <ul class=[
+      styles.lineList,
+      drawer ? styles.drawerLineList : styles.pageLineList,
+    ]>
+      <for|line, index| of=lines by="id">
+        <const/merchandise=line.merchandise>
+        <const/linePending=state?.pending.lines.has(line.id) ?? false>
+        <const/lineMessages=(
+          errors ? getErrorGroupMessages(errors.lines.get(line.id)) : []
+        )>
+        <const/lineErrorId=`${viewId}-line-${index}-errors`>
+        <const/compareAtPrice=getLineCompareAtPrice(line)>
+        <const/productHref=(
+          merchandise?.product.handle
+            ? marketPath(
+                `/products/${encodeURIComponent(merchandise.product.handle)}`,
+                market.pathPrefix,
+              )
+            : null
+        )>
+        <li
+          aria-busy=linePending && "true"
+          class=drawer ? styles.drawerLine : styles.line
+        >
+          <if=merchandise?.image>
+            <const/image=merchandise.image>
+            <define/LineImage>
+              <img
+                src=shopifyImageUrl(image.url, drawer ? 160 : 240)
+                alt=image.altText ?? merchandise.product.title
+                width=image.width ?? undefined
+                height=image.height ?? undefined
+              >
+            </define>
+            <if=productHref>
+              <a
+                href=productHref
+                aria-label=`View ${merchandise.product.title}`
+                class=drawer ? styles.drawerLineImageLink : styles.lineImageLink
+                onClick() {
+                  if (drawer) closeCartDrawer();
+                }
+              >
+                <LineImage/>
+              </a>
+            </if>
+            <else>
+              <span class=(
+                drawer ? styles.drawerLineImageLink : styles.lineImageLink
+              )>
+                <LineImage/>
+              </span>
+            </else>
+          </if>
+          <div class=styles.lineInfo>
+            <h2 class=styles.lineTitle>
+              <if=productHref>
+                <a
+                  href=productHref
+                  onClick() {
+                    if (drawer) closeCartDrawer();
+                  }
+                >
+                  ${merchandise!.product.title}
+                </a>
+              </if>
+              <else>${merchandise?.product.title ?? "Product"}</else>
+            </h2>
+            <if=drawer>
+              <if=merchandise?.title && merchandise.title !== "Default Title">
+                <p class=styles.detail>${merchandise.title}</p>
+              </if>
+            </if>
+            <else>
+              <for|option| of=merchandise?.selectedOptions ?? []>
+                <p class=styles.detail>${option.name}: ${option.value}</p>
+              </for>
+            </else>
+            <form
+              action=getCartApiPath(market.pathPrefix)
+              method="post"
+              aria-busy=linePending && "true"
+              class=styles.quantityForm
+            >
+              <button
+                ...htmlAttributes(register("set"))
+                data-set-quantity="true"
+              >
+                Update quantity
+              </button>
+              <input
+                type="hidden"
+                ...htmlAttributes(register("lineId", { value: line.id }))
+              >
+              <button
+                type="submit"
+                ...htmlAttributes(
+                  line.quantity === 1
+                    ? register("remove")
+                    : register("decrease"),
+                )
+                aria-label=(
+                  line.quantity === 1 ? "Remove item" : "Decrease quantity"
+                )
+              >
+                <app-icon name="circle-minus"/>
+              </button>
+              <input
+                ...htmlAttributes(
+                  register("quantity", {
+                    value: line.quantity,
+                    interactive: true,
+                  }),
+                )
+                aria-label="Quantity"
+                data-pending=linePending && "true"
+                aria-invalid=lineMessages.length ? "true" : undefined
+                aria-describedby=lineMessages.length ? lineErrorId : undefined
+              >
+              <button
+                type="submit"
+                ...htmlAttributes(register("increase"))
+                aria-label="Increase quantity"
+              >
+                <app-icon name="circle-plus"/>
+              </button>
+            </form>
+            <if=lineMessages.length>
+              <div id=lineErrorId role="alert" class=styles.error>
+                <for|message| of=lineMessages>
+                  <p>${message}</p>
+                </for>
+              </div>
+            </if>
+          </div>
+          <div
+            data-line-price="true"
+            class=[styles.linePriceGroup, linePending && styles.pendingValue]
+          >
+            <if=compareAtPrice>
+              <s>${money(compareAtPrice, market.locale)} each</s>
+            </if>
+            <p class=styles.linePrice>
+              ${money(line.cost.totalAmount, market.locale)}
+            </p>
+          </div>
+        </li>
+      </for>
+    </ul>
+
+    <div class=drawer ? styles.drawerSummary : styles.summary>
+      <div class=drawer ? styles.drawerTotals : styles.pageTotals>
+        <div class=drawer ? styles.drawerSubtotal : styles.pageSubtotal>
+          <strong>Subtotal</strong>
+          <span class=cartPending && styles.pendingValue>
+            ${money(currentCart.cost.subtotalAmount, market.locale)}
+          </span>
+        </div>
+        <if=discountAllocation>
+          <div class=styles.allocation>
+            <span>${discountLabel}</span>
+            <span>-${money(discountAllocation, market.locale)}</span>
+          </div>
+        </if>
+        <if=hasFinalTotal>
+          <div class=styles.finalTotal>
+            <strong>Total</strong>
+            <span class=cartPending && styles.pendingValue>
+              ${money(currentCart.cost.totalAmount, market.locale)}
+            </span>
+          </div>
+        </if>
+        <FreeShippingNotice subtotal=currentCart.cost.subtotalAmount/>
+        <if=!drawer>
+          <p class=styles.taxNote>Taxes &amp; shipping details at checkout</p>
+        </if>
+      </div>
+      <if=currentCart.checkoutUrl>
+        <a
+          href=currentCart.checkoutUrl
+          class=drawer ? styles.drawerCheckout : styles.checkout
+        >
+          <span>${cartPending ? "Updating cart…" : "Check out"}</span>
+          <if=!cartPending>
+            <app-icon name="fast-forward"/>
+          </if>
+        </a>
+      </if>
+    </div>
+  </section>
+</else>
