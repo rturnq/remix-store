@@ -62,6 +62,8 @@ export interface StorefrontOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+/** What @marko/run throws when a handler returns `null` for its 404 page. */
+const NOT_MATCHED = Symbol.for("Run.Response.NotMatched");
 const SUBSCRIBE_PATH = "/subscribe";
 const SEO_PATH =
   /^\/(?:robots\.txt|sitemap\.xml|sitemap\/[^/]+(?:\/[^/]+)?\.xml)$/;
@@ -232,17 +234,29 @@ export function storefront(options: StorefrontOptions = {}) {
     ]);
     ctx.shell = { ...shellMenus, cart, analyticsShop };
 
-    let response: AnyResponse = await next();
+    let response: AnyResponse;
+    try {
+      response = await next();
+    } catch (error) {
+      // A handler returning `null` throws past middleware to the 404 page.
+      if (error !== NOT_MATCHED) throw error;
+      let redirect = await shopifyRedirect();
+      if (!redirect) throw error;
+      response = redirect;
+    }
     if (response.status === 404) {
-      response =
-        (await handleShopifyRedirects({
-          request: ctx.request,
-          storefrontClient,
-          routeTemplates,
-        })) ?? response;
-      response = localizeRedirect(response, activeMarket, ctx.url);
+      response = (await shopifyRedirect()) ?? response;
     }
     return applyResponseHeaders(requestContext, noStoreRedirect(response));
+
+    async function shopifyRedirect() {
+      let redirect = await handleShopifyRedirects({
+        request: ctx.request,
+        storefrontClient,
+        routeTemplates,
+      });
+      return redirect && localizeRedirect(redirect, activeMarket, ctx.url);
+    }
   };
 }
 
