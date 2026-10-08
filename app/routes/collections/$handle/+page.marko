@@ -6,6 +6,10 @@
   socialImage="/social-collections.jpg"
 >
   <main>
+    <collection-viewed collection={
+      id: collection.id,
+      handle: collection.handle,
+    }/>
     <page-title title=collection.title/>
     <if=collection.products.nodes.length>
       <product-grid

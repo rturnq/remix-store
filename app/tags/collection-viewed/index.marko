@@ -1,0 +1,8 @@
+client import { publishCollectionViewed } from "../../lib/browser/analytics.ts";
+
+export interface Input {
+  collection: { handle: string; id: string };
+}
+
+// Renders nothing; reports the collection view once the page loads.
+<script>publishCollectionViewed(input.collection);</script>

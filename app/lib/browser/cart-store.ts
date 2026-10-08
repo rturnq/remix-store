@@ -5,11 +5,8 @@ import {
 } from "@shopify/hydrogen";
 
 import type { CartInitialData, SerializedCartData } from "../../data/cart.ts";
-import { getCartApiPath } from "../../lib/public/cart-routes.ts";
-import type { MarketPathPrefix } from "../../lib/public/market.ts";
-
-export type { CartInitialData } from "../../data/cart.ts";
-export { CART_API_PATH, getCartApiPath } from "../../lib/public/cart-routes.ts";
+import { getCartApiPath } from "../cart-routes.ts";
+import type { MarketPathPrefix } from "../market.ts";
 
 let browserCartStore: CartStore | undefined;
 
@@ -33,7 +30,7 @@ export function getBrowserCartStore(
     initialData?.cart &&
     browserCartStore.getState().data.id === null
   ) {
-    // Another island may have created the singleton before the cart shell.
+    // Another component may have created the singleton before the cart shell.
     // Seed it once when server cart data arrives, then trust the live store.
     browserCartStore.hydrate(initialData.cart);
   }

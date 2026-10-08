@@ -1,0 +1,21 @@
+client import { trackCartAnalytics } from "@shopify/hydrogen";
+client import {
+  publishPageViewed,
+  startShopifyScripts,
+} from "../../lib/browser/analytics.ts";
+client import {
+  configureOpenCartAction,
+  documentMarketPathPrefix,
+} from "../../lib/browser/cart-drawer.ts";
+client import { getBrowserCartStore } from "../../lib/browser/cart-store.ts";
+
+// Renders nothing: once per document it starts ShopifyScripts, reports the
+// page view, tracks cart changes for analytics and wires Shopify's openCart.
+<script>
+  startShopifyScripts().then(() => {
+    let cartStore = getBrowserCartStore(undefined, documentMarketPathPrefix());
+    if (cartStore) trackCartAnalytics(cartStore);
+    configureOpenCartAction();
+  });
+  publishPageViewed();
+</script>

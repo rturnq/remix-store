@@ -145,6 +145,7 @@ static function getShopifyScripts(
     <if=shell>
       <app-footer menu=shell.footerMenu pathPrefix=market.pathPrefix/>
     </if>
+    <shopify-runtime/>
     <for|{ attributes, innerHTML }| of=shopifyScripts.scripts>
       <const/{ crossorigin, ...rest }=attributes ?? {}>
       <html-script ...rest crossorigin=crossorigin || undefined>

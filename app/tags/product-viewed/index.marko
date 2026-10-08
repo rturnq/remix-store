@@ -1,0 +1,10 @@
+import type { ProductPayload } from "@shopify/hydrogen";
+client import { publishProductViewed } from "../../lib/browser/analytics.ts";
+
+export interface Input {
+  product: ProductPayload;
+}
+
+// Renders nothing; reports the product view once per product. Variant
+// changes keep the same product, so they do not report another view.
+<script>publishProductViewed(input.product);</script>
